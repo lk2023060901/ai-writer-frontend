@@ -1,0 +1,61 @@
+{
+  "recommendations": [
+    // React 开发
+    "dsznajder.es7-react-js-snippets",
+    "ms-vscode.vscode-typescript-next",
+    "ms-vscode.vscode-react-native",
+
+    // 样式
+    "bradlc.vscode-tailwindcss",
+    "styled-components.vscode-styled-components",
+    "zignd.html-css-class-completion",
+
+    // 代码质量
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+
+    // Redux
+    "ms-vscode.redux-devtools",
+
+    // 工具
+    "formulahendry.auto-rename-tag",
+    "christian-kohler.path-intellisense",
+    "ms-vscode.vscode-json",
+    "bradlc.vscode-tailwindcss",
+
+    // Git
+    "mhutchie.git-graph",
+    "eamodio.gitlens",
+
+    // 主题和图标
+    "pkief.material-icon-theme",
+    "github.github-vscode-theme",
+    "ms-vscode.vscode-github-theme",
+
+    // 开发工具
+    "ms-vscode.vscode-package-json",
+    "yzhang.markdown-all-in-one",
+    "ms-vscode.live-server",
+
+    // 浏览器调试
+    "ms-vscode.vscode-chrome-debug",
+    "firefox-devtools.vscode-firefox-debug",
+
+    // 代码片段和自动补全
+    "ms-vscode.vscode-emmet",
+    "ms-vscode.vscode-intellicode",
+
+    // Vite 相关
+    "antfu.vite",
+
+    // 其他实用工具
+    "ms-vscode.vscode-terminal",
+    "ms-vscode.hexeditor",
+    "redhat.vscode-yaml"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript",
+    "hookyqr.beautify"
+  ]
+}
