@@ -11,6 +11,7 @@ interface UIState {
   darkMode: boolean;
   currentTab: string;
   activeTabId?: string;
+  currentTopicId?: string;
 }
 
 interface TabItem {
@@ -31,6 +32,7 @@ const initialState: UIState & {
   darkMode: false,
   currentTab: 'home',
   activeTabId: 'home',
+  currentTopicId: undefined,
   sidebarActiveTab: 'assistants',
   tabs: [
     {
@@ -95,6 +97,9 @@ const uiSlice = createSlice({
         tab.title = action.payload.title;
       }
     },
+    setCurrentTopic: (state, action: PayloadAction<string | undefined>) => {
+      state.currentTopicId = action.payload;
+    },
   },
 });
 
@@ -109,6 +114,7 @@ export const {
   removeTab,
   setActiveTab,
   updateTabTitle,
+  setCurrentTopic,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

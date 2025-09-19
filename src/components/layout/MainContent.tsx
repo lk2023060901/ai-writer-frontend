@@ -322,7 +322,9 @@ const MainContent: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showTabsDemo, setShowTabsDemo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { activeTabId } = useAppSelector(state => state.ui);
+  const { activeTabId, currentTopicId, sidebarActiveTab } = useAppSelector(state => state.ui);
+  const [currentTopicIdRef, setCurrentTopicIdRef] = useState<string | undefined>(currentTopicId);
+  const [previousSidebarTab, setPreviousSidebarTab] = useState<string>(sidebarActiveTab);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -331,6 +333,31 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // 监听话题切换，清空聊天内容
+  useEffect(() => {
+    if (currentTopicId !== currentTopicIdRef) {
+      // 话题已切换，清空当前聊天内容
+      setMessages([]);
+      setInputValue('');
+      setCurrentTopicIdRef(currentTopicId);
+    }
+  }, [currentTopicId, currentTopicIdRef]);
+
+  // 监听侧边栏标签页切换，清空聊天内容
+  useEffect(() => {
+    if (sidebarActiveTab !== previousSidebarTab) {
+      // 侧边栏标签页已切换，清空当前聊天内容
+      setMessages([]);
+      setInputValue('');
+      setPreviousSidebarTab(sidebarActiveTab);
+
+      // 如果切换到对话标签页，且没有选中话题，则清空话题关联
+      if (sidebarActiveTab === 'topics' && !currentTopicId) {
+        setCurrentTopicIdRef(undefined);
+      }
+    }
+  }, [sidebarActiveTab, previousSidebarTab, currentTopicId]);
 
   // 处理流式消息更新
   const handleStreamMessage = useCallback((streamMessage: StreamMessage) => {
