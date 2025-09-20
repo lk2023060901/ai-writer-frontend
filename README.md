@@ -28,8 +28,9 @@ npm run lint
 
 ## 📚 项目文档
 
-- [**故障排除指南**](./docs/troubleshooting/README.md) - 常见问题的排查和解决方案
-- [**修复日志**](./docs/CHANGELOG.md) - 项目版本更新和bug修复记录
+- [**故障排除指南**](./docs/troubleshooting/) - 常见问题的排查和解决方案
+  - [侧边栏标签页消失问题修复](./docs/troubleshooting/sidebar-clear-messages-bug-final.md)
+- [**更新日志**](./CHANGELOG.md) - 项目版本更新和bug修复记录
 
 ## 🛠️ 技术栈
 

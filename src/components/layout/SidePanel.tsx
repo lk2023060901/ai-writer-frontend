@@ -10,7 +10,7 @@ const { Sider } = Layout;
 const StyledSider = styled(Sider)`
   background: var(--bg-primary);
   border-right: none;
-  height: 100vh;
+  height: calc(100vh - 48px); /* 减去顶部导航栏的高度 */
   overflow: hidden;
 
   .ant-layout-sider-children {
@@ -24,26 +24,33 @@ const StyledSider = styled(Sider)`
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100%; /* 使用100%而不是100vh */
 
-    .ant-tabs-nav {
+    /* 只针对sidebar-tabs内的元素，避免影响其他Tabs组件 */
+    &.sidebar-tabs .ant-tabs-nav {
       margin: 0;
       padding: 8px;
       background: transparent;
       box-sizing: border-box;
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
 
       &::before {
         border: none;
       }
     }
 
-    .ant-tabs-tab {
+    &.sidebar-tabs .ant-tabs-tab {
       padding: 8px 12px;
       margin: 0;
       border: none;
       background: transparent;
       color: var(--text-secondary);
       position: relative;
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
 
       /* 创建悬停时的下划线动画 */
       &::after {
@@ -59,6 +66,21 @@ const StyledSider = styled(Sider)`
         width: calc(100% - 16px); /* 匹配选中状态下划线的宽度 */
       }
 
+      /* 为所有 Tab 创建自定义下划线 */
+      &::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        width: calc(100% - 16px);
+        height: 2px;
+        background: var(--accent-color);
+        transform: translateX(-50%) scaleX(0);
+        transform-origin: center;
+        transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+        z-index: 1;
+      }
+
       &:hover {
         color: var(--text-primary);
 
@@ -72,7 +94,12 @@ const StyledSider = styled(Sider)`
         background: transparent;
         color: var(--accent-color);
 
-        /* 选中状态时隐藏悬停下划线，显示原生 ink-bar */
+        /* 激活状态：展开下划线（从中心向两边展开） */
+        &::before {
+          transform: translateX(-50%) scaleX(1);
+        }
+
+        /* 选中状态时隐藏悬停下划线 */
         &::after {
           display: none;
         }
@@ -82,19 +109,27 @@ const StyledSider = styled(Sider)`
         }
       }
 
-      .ant-tabs-tab-btn {
+      /* 非激活状态：确保下划线收缩（向中心收缩） */
+      &:not(.ant-tabs-tab-active)::before {
+        transform: translateX(-50%) scaleX(0);
+      }
+
+      &.sidebar-tabs .ant-tabs-tab-btn {
         display: flex;
         align-items: center;
         font-size: 14px;
+        transition: color 0.3s ease;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
     }
 
-    .ant-tabs-content-holder {
+    &.sidebar-tabs .ant-tabs-content-holder {
       flex: 1;
       overflow-y: overlay;
       overflow-x: hidden;
       min-height: 0;
-      height: calc(100vh - 48px);
+      height: calc(100% - 48px); /* 使用相对高度 */
       box-sizing: border-box;
 
       /* 自定义滚动条样式 */
@@ -120,48 +155,13 @@ const StyledSider = styled(Sider)`
       }
     }
 
-    .ant-tabs-tabpane {
+    &.sidebar-tabs .ant-tabs-tabpane {
       min-height: fit-content;
     }
 
     /* 禁用原生 ink-bar 的滑动动画 */
-    .ant-tabs-ink-bar {
+    &.sidebar-tabs .ant-tabs-ink-bar {
       display: none !important;
-    }
-
-    /* 为每个 Tab 添加自定义下划线 */
-    .ant-tabs-tab {
-      position: relative;
-      transition: color 0.3s ease;
-
-      /* 为所有 Tab 创建隐藏的下划线 */
-      &::before {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        width: calc(100% - 16px);
-        height: 2px;
-        background: var(--accent-color);
-        transform: translateX(-50%) scaleX(0);
-        transform-origin: center;
-        transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-        z-index: 1;
-      }
-
-      /* 激活状态：展开下划线（从中心向两边展开） */
-      &.ant-tabs-tab-active::before {
-        transform: translateX(-50%) scaleX(1);
-      }
-
-      /* 非激活状态：确保下划线收缩（向中心收缩） */
-      &:not(.ant-tabs-tab-active)::before {
-        transform: translateX(-50%) scaleX(0);
-      }
-
-      .ant-tabs-tab-btn {
-        transition: color 0.3s ease;
-      }
     }
   }
 `;
@@ -1524,7 +1524,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ inDrawer = false }) => {
           tabPosition="top"
           size="small"
           type="line"
-          destroyOnHidden={true}
+          destroyOnHidden={false}
           items={[
             {
               key: 'assistants',
@@ -1564,7 +1564,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ inDrawer = false }) => {
           tabPosition="top"
           size="small"
           type="line"
-          destroyOnHidden={true}
+          destroyOnHidden={false}
           items={[
             {
               key: 'assistants',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ConfigProvider, theme } from 'antd';
+import { ConfigProvider, theme, App as AntApp } from 'antd';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from '@/store';
@@ -39,7 +39,9 @@ const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         },
       }}
     >
-      {children}
+      <AntApp>
+        {children}
+      </AntApp>
     </ConfigProvider>
   );
 };

@@ -19,9 +19,23 @@ import {
   SendOutlined,
   StopOutlined,
   ThunderboltOutlined,
-  UserOutlined
+  UserOutlined,
+  CommentOutlined,
+  BulbOutlined,
+  GlobalOutlined,
+  FileSearchOutlined,
+  BuildOutlined,
+  FunctionOutlined,
+  FormatPainterOutlined,
+  ExpandOutlined,
+  CompressOutlined,
+  ClearOutlined,
+  TranslationOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  LeftCircleOutlined
 } from '@ant-design/icons';
-import { Button, Input, Layout, message } from 'antd';
+import { Button, Input, Layout, App, Divider } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -190,26 +204,59 @@ const InputArea = styled.div`
       align-items: center;
       margin-top: 8px;
       gap: 8px;
+      padding: 0 4px;
 
-      .left-actions {
+      .left-toolbar {
         display: flex;
-        gap: 8px;
+        gap: 4px;
+        flex: 1;
+        align-items: center;
       }
 
-      .action-button {
+      .right-toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-left: 16px;
+      }
+
+      .toolbar-button {
         border: none;
         background: transparent;
         color: var(--text-tertiary);
-        padding: 6px;
+        padding: 4px;
         border-radius: 4px;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 14px;
+        width: 24px;
+        height: 24px;
+        transition: all 0.2s;
 
         &:hover {
           background: rgba(255, 255, 255, 0.1);
           color: var(--text-secondary);
+        }
+
+        &.active {
+          color: var(--accent-color);
+          background: rgba(217, 119, 6, 0.1);
+        }
+      }
+
+      .status-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-tertiary);
+        font-size: 12px;
+        
+        .status-item {
+          display: flex;
+          align-items: center;
+          gap: 2px;
         }
       }
 
@@ -223,6 +270,9 @@ const InputArea = styled.div`
         display: flex;
         align-items: center;
         gap: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
 
         &:hover {
           background: color-mix(in srgb, var(--accent-color) 80%, black);
@@ -279,6 +329,7 @@ interface MainContentProps {
 }
 
 const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
+  const { message } = App.useApp();
   const [messages, setMessages] = useState<StreamMessage[]>([
     {
       id: '1',
@@ -313,6 +364,11 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   const [showTabsDemo, setShowTabsDemo] = useState(false);
   const [modelModalVisible, setModelModalVisible] = useState(false);
   const [isNarrowMode, setIsNarrowMode] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [chainLength, setChainLength] = useState(2);
+  const [contextCount, setContextCount] = useState(0);
+  const [tokenCount, setTokenCount] = useState(6241);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const dispatch = useAppDispatch();
   const { activeTabId, currentTopicId, sidebarCollapsed, currentModelName, tabs } = useAppSelector(state => state.ui);
@@ -427,6 +483,67 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
     setIsNarrowMode(!isNarrowMode);
   };
 
+  // 工具栏按钮处理函数
+  const handleNewTopic = () => {
+    // TODO: 实现新建话题功能
+    console.log('新建话题');
+  };
+
+  const handleAttachment = () => {
+    // TODO: 实现附件功能
+    console.log('添加附件');
+  };
+
+  const handleChainLength = () => {
+    // TODO: 实现思维链长度设置
+    setChainLength(chainLength === 2 ? 10 : 2);
+    console.log('设置思维链长度');
+  };
+
+  const handleWebSearch = () => {
+    // TODO: 实现联网搜索功能
+    console.log('联网搜索');
+  };
+
+  const handleKnowledgeBase = () => {
+    // TODO: 实现知识库功能
+    console.log('知识库');
+  };
+
+  const handleMCP = () => {
+    // TODO: 实现MCP功能
+    console.log('MCP');
+  };
+
+  const handleQuickPhrases = () => {
+    // TODO: 实现快捷短语功能
+    console.log('快捷短语');
+  };
+
+  const handleClearMessages = () => {
+    setMessages([]);
+    setInputValue('');
+    message.success('已清空消息');
+  };
+
+  const handleToggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  const handleClearContext = () => {
+    setContextCount(0);
+    message.success('已清空上下文');
+  };
+
+  const handleTranslate = () => {
+    // TODO: 实现翻译功能
+    console.log('翻译');
+  };
+
+  const handleToggleToolbar = () => {
+    setIsToolbarCollapsed(!isToolbarCollapsed);
+  };
+
   // 如果显示Tabs演示页面
   if (showTabsDemo) {
     return (
@@ -495,7 +612,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
             )}
             <ModelButton
               type="text"
-              icon={<ThunderboltOutlined />}
+              icon={<FunctionOutlined />}
               onClick={() => setModelModalVisible(true)}
             >
               {currentModelName || 'Claude 3.5 Sonnet'}
@@ -652,30 +769,85 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
                 disabled={streamingChat.isStreaming}
               />
               <div className="input-actions">
-                <div className="left-actions">
-                  <button className="action-button" title="上传文件">
+                <div className="left-toolbar">
+                  <button className="toolbar-button" onClick={handleNewTopic} title="新建话题">
+                    <CommentOutlined />
+                  </button>
+                  <button className="toolbar-button" onClick={handleAttachment} title="附件">
                     <PaperClipOutlined />
                   </button>
+                  <button className="toolbar-button" onClick={handleChainLength} title="思维链长度">
+                    <BulbOutlined />
+                  </button>
+                  <button className="toolbar-button" onClick={handleWebSearch} title="联羑搜索">
+                    <GlobalOutlined />
+                  </button>
+                  <button className="toolbar-button" onClick={handleKnowledgeBase} title="知识库">
+                    <FileSearchOutlined />
+                  </button>
+                  <button className="toolbar-button" onClick={handleMCP} title="MCP">
+                    <BuildOutlined />
+                  </button>
+                  <button className="toolbar-button" onClick={() => setModelModalVisible(true)} title="选择模型">
+                    <FunctionOutlined />
+                  </button>
+                                  
+                  <Divider type="vertical" style={{ margin: '0 4px', height: '16px' }} />
+                                  
+                  {!isToolbarCollapsed && (
+                    <>
+                      <button className="toolbar-button" onClick={handleQuickPhrases} title="快捷短语">
+                        <ThunderboltOutlined />
+                      </button>
+                      <button className="toolbar-button" onClick={handleClearMessages} title="清空消息">
+                        <FormatPainterOutlined />
+                      </button>
+                      <button className="toolbar-button" onClick={handleToggleExpand} title="展开/收起聊天框">
+                        {isExpanded ? <CompressOutlined /> : <ExpandOutlined />}
+                      </button>
+                      <button className="toolbar-button" onClick={handleClearContext} title="清空上下文">
+                        <ClearOutlined />
+                      </button>
+                    </>
+                  )}
+                                  
+                  <button className="toolbar-button" onClick={handleToggleToolbar} title={isToolbarCollapsed ? "展开工具栏" : "折叠工具栏"}>
+                    <LeftCircleOutlined style={{ transform: isToolbarCollapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }} />
+                  </button>
                 </div>
-                {streamingChat.isStreaming ? (
-                  <button
-                    className="send-button"
-                    onClick={handleStopStreaming}
-                    style={{ background: 'var(--text-tertiary)' }}
-                  >
-                    <StopOutlined />
-                    停止
+                
+                <div className="right-toolbar">
+                  <div className="status-info">
+                    <div className="status-item">
+                      <span>{chainLength}/10</span>
+                    </div>
+                    <div className="status-item">
+                      <span>{contextCount}/{tokenCount}</span>
+                    </div>
+                  </div>
+                  <button className="toolbar-button" onClick={handleTranslate} title="翻译">
+                    <TranslationOutlined />
                   </button>
-                ) : (
-                  <button
-                    className="send-button"
-                    onClick={handleSendMessage}
-                    disabled={!inputValue.trim()}
-                  >
-                    <SendOutlined />
-                    发送
-                  </button>
-                )}
+                  {streamingChat.isStreaming ? (
+                    <button
+                      className="send-button"
+                      onClick={handleStopStreaming}
+                      style={{ background: 'var(--text-tertiary)' }}
+                    >
+                      <StopOutlined />
+                      停止
+                    </button>
+                  ) : (
+                    <button
+                      className="send-button"
+                      onClick={handleSendMessage}
+                      disabled={!inputValue.trim()}
+                    >
+                      <SendOutlined />
+                      发送
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </InputArea>

@@ -94,28 +94,30 @@ const AppLayout: React.FC = () => {
         /* 正常布局 - 侧边栏 + 主内容 */
         <>
           <ContentLayout className={`theme-${theme}`}>
-            {/* 左侧面板 - 只在非应用标签时显示 */}
-            {!isApplicationTab && <SidePanel />}
+            {/* 左侧面板 - 只在非应用标签且侧边栏未收起时显示 */}
+            {!isApplicationTab && !sidebarCollapsed && (
+              <SidePanel key="main-sidebar" />
+            )}
 
             {/* 主要内容 */}
             <MainContent onDrawerOpen={() => setDrawerVisible(true)} />
           </ContentLayout>
 
-          {/* 抽屉遮罩层 - 只在非应用标签时显示 */}
-          {!isApplicationTab && (
+          {/* 抽屉遮罩层 - 只在非应用标签且侧边栏收起时显示 */}
+          {!isApplicationTab && sidebarCollapsed && (
             <DrawerOverlay
-              $visible={drawerVisible && sidebarCollapsed}
+              $visible={drawerVisible}
               onClick={() => setDrawerVisible(false)}
             />
           )}
 
-          {/* 自定义抽屉式侧边栏 - 只在非应用标签时显示 */}
-          {!isApplicationTab && (
+          {/* 自定义抽屉式侧边栏 - 只在非应用标签且侧边栏收起时显示 */}
+          {!isApplicationTab && sidebarCollapsed && (
             <StyledDrawer
-              $visible={drawerVisible && sidebarCollapsed}
+              $visible={drawerVisible}
               ref={drawerRef}
             >
-              <SidePanel inDrawer={true} />
+              <SidePanel key="drawer-sidebar" inDrawer={true} />
             </StyledDrawer>
           )}
         </>
