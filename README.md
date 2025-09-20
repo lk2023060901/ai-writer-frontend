@@ -1,4 +1,57 @@
-# React + TypeScript + Vite
+# AI Writer Frontend
+
+一个基于 React + TypeScript + Vite 构建的 AI 写作工具前端项目，提供现代化、高性能的用户界面。
+
+## 🚀 快速开始
+
+### 环境要求
+- Node.js 18+ 
+- npm/yarn/pnpm
+
+### 安装和运行
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+
+# 预览生产构建
+npm run preview
+
+# 代码检查
+npm run lint
+```
+
+## 📚 项目文档
+
+- [**故障排除指南**](./docs/troubleshooting/README.md) - 常见问题的排查和解决方案
+- [**修复日志**](./docs/CHANGELOG.md) - 项目版本更新和bug修复记录
+
+## 🛠️ 技术栈
+
+- **前端框架**: React 19.1.1
+- **类型系统**: TypeScript 5.8.3  
+- **构建工具**: Vite 7.1.6
+- **状态管理**: Redux Toolkit + React-Redux
+- **UI 组件库**: Ant Design 5.27.4
+- **样式方案**: Tailwind CSS + styled-components
+- **路由**: React Router DOM 7.9.1
+
+## 💬 核心功能
+
+- **AI 聊天交互** - 支持流式响应和多模型切换
+- **智能体管理** - 创建和管理不同的AI助手
+- **知识库管理** - 文档上传、处理和检索
+- **主题定制** - ChatGPT/Claude主题切换和深色模式
+- **多标签页** - 支持多个会话同时进行
+
+---
+
+# React + TypeScript + Vite Template
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

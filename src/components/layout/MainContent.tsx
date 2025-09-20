@@ -110,7 +110,7 @@ const ModelButton = styled(Button)`
   }
 `;
 
-const MessageArea = styled.div<{ $isNarrow?: boolean }>`
+const MessageArea = styled.div`
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
@@ -119,18 +119,6 @@ const MessageArea = styled.div<{ $isNarrow?: boolean }>`
   min-height: 0;
   max-height: 100%;
   background: var(--bg-primary);
-  transition: max-width 0.3s ease, margin 0.3s ease;
-
-  /* 基于视口宽度的80%缩放 */
-  ${props => props.$isNarrow && `
-    max-width: 80vw;
-    margin: 0 auto;
-  `}
-
-  ${props => !props.$isNarrow && `
-    max-width: 100%;
-    margin: 0;
-  `}
 
   /* 自定义滚动条样式 */
   &::-webkit-scrollbar {
@@ -159,23 +147,11 @@ const MessageArea = styled.div<{ $isNarrow?: boolean }>`
 `;
 
 
-const InputArea = styled.div<{ $isNarrow?: boolean }>`
+const InputArea = styled.div`
   border-top: none;
   padding: 16px 0 24px;
   background: var(--bg-primary);
   flex-shrink: 0;
-  transition: max-width 0.3s ease, margin 0.3s ease;
-
-  /* 基于视口宽度的80%缩放 */
-  ${props => props.$isNarrow && `
-    max-width: 80vw;
-    margin: 0 auto;
-  `}
-
-  ${props => !props.$isNarrow && `
-    max-width: 100%;
-    margin: 0;
-  `}
 
   .input-container {
     position: relative;
@@ -276,7 +252,7 @@ const WelcomeArea = styled.div`
   flex-shrink: 0;
 `;
 
-const ChatArea = styled.div`
+const ChatArea = styled.div<{ $isNarrow?: boolean }>`
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -284,6 +260,18 @@ const ChatArea = styled.div`
   min-height: 0;
   background: var(--bg-primary);
   border-radius: 8px;
+  transition: width 0.3s ease, margin 0.3s ease;
+
+  /* 只缩放聊天内容区域，不包括工具栏 */
+  ${props => props.$isNarrow && `
+    width: 80%;
+    margin: 0 auto;
+  `}
+
+  ${props => !props.$isNarrow && `
+    width: 100%;
+    margin: 0;
+  `}
 `;
 
 interface MainContentProps {
@@ -545,8 +533,8 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
           欢迎使用 AI 工作台 - {messages.length === 0 ? '开始新的对话' : `当前对话中有 ${messages.length} 条消息`}
         </WelcomeArea>
 
-        <ChatArea>
-          <MessageArea $isNarrow={isNarrowMode}>
+        <ChatArea $isNarrow={isNarrowMode}>
+          <MessageArea>
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -653,7 +641,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
             <div ref={messagesEndRef} />
           </MessageArea>
 
-          <InputArea $isNarrow={isNarrowMode}>
+          <InputArea>
             <div className="input-container">
               <TextArea
                 value={inputValue}
