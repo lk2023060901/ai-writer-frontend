@@ -80,7 +80,6 @@ const ChatToolbar = styled.div`
   justify-content: space-between;
   padding: 0 16px;
   margin: 8px 0;
-  background: var(--bg-secondary);
 `;
 
 const ToolbarLeft = styled.div`

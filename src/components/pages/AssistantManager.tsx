@@ -1,35 +1,38 @@
 import {
+  BankOutlined,
+  BookOutlined,
   BulbOutlined,
+  CloseOutlined,
+  CodeOutlined,
   CommentOutlined,
   DeleteOutlined,
+  DownOutlined,
   EditOutlined,
+  FileOutlined,
   FileTextOutlined,
   GlobalOutlined,
   HeartOutlined,
+  HomeOutlined,
   MoreOutlined,
+  PictureOutlined,
   PlusOutlined,
+  ReadOutlined,
+  RedoOutlined,
   RobotOutlined,
   SearchOutlined,
+  SmileOutlined,
   StarFilled,
   StarOutlined,
   ThunderboltOutlined,
-  UserOutlined,
-  BookOutlined,
-  BankOutlined,
   ToolOutlined,
   TranslationOutlined,
-  FileOutlined,
-  CodeOutlined,
-  SmileOutlined,
-  ReadOutlined,
-  PictureOutlined,
-  CustomerServiceOutlined,
-  HomeOutlined
+  UserOutlined
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { Avatar, Button, Card, Dropdown, Input, Tag } from 'antd';
-import React, { useState } from 'react';
+import { Avatar, Button, Card, Dropdown, Input, Modal, Select, Tag, Tooltip } from 'antd';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { useAppSelector } from '@/hooks/redux';
 
 const Container = styled.div`
   height: 100vh;
@@ -45,6 +48,18 @@ const Sidebar = styled.div`
   display: flex;
   flex-direction: column;
   height: 100vh;
+  
+  /* 强制暗色模式样式，最高优先级 */
+  .dark & {
+    background: #2d2d2d !important;
+    border-right-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  /* 兼容旧的CSS变量方式 */
+  &[data-theme="dark"] {
+    background: #2d2d2d !important;
+    border-right-color: rgba(255, 255, 255, 0.1) !important;
+  }
 `;
 
 const Content = styled.div`
@@ -275,6 +290,250 @@ const CreateButton = styled(Button)`
   }
 `;
 
+// 模态框样式
+const StyledModal = styled(Modal)`
+  .ant-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+  
+  .ant-modal-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 20px 24px;
+    border-radius: 12px 12px 0 0;
+  }
+  
+  .ant-modal-title {
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 600;
+  }
+  
+  .ant-modal-body {
+    background: #fff;
+    padding: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .ant-modal-footer {
+    background: #fff;
+    border-top: 1px solid var(--border-color);
+    padding: 16px 24px;
+    border-radius: 0 0 12px 12px;
+  }
+  
+  .ant-modal-close {
+    top: 16px;
+    right: 16px;
+  }
+`;
+
+const FormItem = styled.div`
+  margin-bottom: 20px;
+`;
+
+const FormRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+`;
+
+const FormLabel = styled.label`
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 60px;
+  
+  &::before {
+    content: '*';
+    color: #ff4d4f;
+    margin-right: 4px;
+  }
+`;
+
+const FormLabelOptional = styled.label`
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 60px;
+`;
+
+const EmojiButton = styled(Button)`
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  
+  &:hover {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--text-primary) !important;
+  }
+`;
+
+const StyledInput = styled(Input)`
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  
+  &:focus, &:focus-within {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+  
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+`;
+
+const PromptContainer = styled.div`
+  position: relative;
+  flex: 1;
+`;
+
+const StyledTextArea = styled(Input.TextArea)`
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 8px;
+  min-height: 180px;
+  padding-right: 80px;
+  padding-bottom: 32px;
+  
+  &:focus, &:focus-within {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+  
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+  
+  .ant-input-data-count {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+`;
+
+const PromptActions = styled.div`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+  align-items: center;
+`;
+
+const PromptBottomActions = styled.div`
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 80px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+  
+  > * {
+    pointer-events: auto;
+  }
+`;
+
+const TokenCount = styled.div`
+  font-size: 12px;
+  color: var(--text-secondary);
+`;
+
+const ActionIcon = styled(Button)`
+  background: rgba(0, 0, 0, 0.04);
+  border: none;
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: rgba(0, 0, 0, 0.08) !important;
+    color: var(--text-primary) !important;
+  }
+`;
+
+const UndoIcon = styled(ActionIcon)`
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+`;
+
+const OptimizeIcon = styled(ActionIcon)`
+  background: rgba(255, 69, 0, 0.2);
+  border: 1px solid rgba(255, 69, 0, 0.4);
+`;
+
+const StyledSelect = styled(Select)`
+  .ant-select-selector {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px;
+  }
+  
+  .ant-select-selection-placeholder {
+    color: var(--text-secondary);
+  }
+  
+  .ant-select-selection-item {
+    color: var(--text-primary);
+  }
+  
+  .ant-select-arrow {
+    color: var(--text-secondary);
+  }
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+`;
+
+const CancelButton = styled(Button)`
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  
+  &:hover {
+    background: var(--bg-secondary) !important;
+    border-color: var(--accent-color) !important;
+    color: var(--text-primary) !important;
+  }
+`;
+
+const SubmitButton = styled(Button)`
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+  border-radius: 8px;
+  font-weight: 500;
+  
+  &:hover {
+    background: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    opacity: 0.9;
+  }
+`;
+
 interface Assistant {
   id: string;
   name: string;
@@ -291,6 +550,25 @@ interface Assistant {
 const AssistantManager: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('my');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [assistantForm, setAssistantForm] = useState({
+    emoji: '',
+    name: '',
+    prompt: '',
+    knowledgeBase: [] as string[]
+  });
+  const [promptHistory, setPromptHistory] = useState<string[]>([]);
+  
+  // 获取当前主题状态
+  const { theme, darkMode } = useAppSelector(state => state.ui);
+  
+  // 强制重新渲染以响应主题变化
+  const [, forceUpdate] = useState({});
+  
+  useEffect(() => {
+    // 当主题改变时强制重新渲染组件
+    forceUpdate({});
+  }, [theme, darkMode]);
 
   // 模拟数据
   const assistants: Assistant[] = [
@@ -378,6 +656,56 @@ const AssistantManager: React.FC = () => {
     setSearchQuery(value);
   };
 
+  // 创建智能体模态框处理
+  const handleCreateAssistant = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowCreateModal(false);
+    setAssistantForm({
+      emoji: '',
+      name: '',
+      prompt: '',
+      knowledgeBase: []
+    });
+    setPromptHistory([]);
+  };
+
+  const handleFormChange = (field: string, value: string | string[]) => {
+    setAssistantForm(prev => ({ ...prev, [field]: value }));
+
+    // 如果是提示词字段且内容有变化，保存历史
+    if (field === 'prompt' && typeof value === 'string' && value !== assistantForm.prompt) {
+      setPromptHistory(prev => {
+        const newHistory = [...prev];
+        if (assistantForm.prompt && !newHistory.includes(assistantForm.prompt)) {
+          newHistory.push(assistantForm.prompt);
+        }
+        return newHistory.slice(-10); // 保持10条历史
+      });
+    }
+  };
+
+  const handleUndoPrompt = () => {
+    if (promptHistory.length > 0) {
+      const lastPrompt = promptHistory[promptHistory.length - 1];
+      setAssistantForm(prev => ({ ...prev, prompt: lastPrompt }));
+      setPromptHistory(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleOptimizePrompt = () => {
+    // 这里可以调用AI接口来优化提示词
+    console.log('优化提示词:', assistantForm.prompt);
+  };
+
+  const handleSubmitAssistant = () => {
+    // 这里处理提交逻辑
+    console.log('创建智能体:', assistantForm);
+    handleCloseModal();
+  };
+
   const categories = [
     { key: 'my', label: '我的', count: 3, icon: <UserOutlined /> },
     { key: 'featured', label: '精选', count: 4, icon: <StarOutlined /> },
@@ -394,6 +722,18 @@ const AssistantManager: React.FC = () => {
     { key: 'design', label: '设计', count: 31, icon: <PictureOutlined /> },
     { key: 'entertainment', label: '娱乐', count: 75, icon: <SmileOutlined /> },
     { key: 'life', label: '生活', count: 83, icon: <HomeOutlined /> }
+  ];
+
+  // 知识库选项
+  const knowledgeBaseOptions = [
+    { label: '通用知识库', value: 'general' },
+    { label: '技术文档', value: 'technical' },
+    { label: '产品说明', value: 'product' },
+    { label: '企业知识', value: 'enterprise' },
+    { label: '学术论文', value: 'academic' },
+    { label: '法律条文', value: 'legal' },
+    { label: '医学资料', value: 'medical' },
+    { label: '运营指南', value: 'operations' }
   ];
 
   const getMoreMenuItems = (assistant: Assistant): MenuProps['items'] => [
@@ -424,20 +764,23 @@ const AssistantManager: React.FC = () => {
     return <RobotOutlined />;
   };
 
-  const filteredAssistants = searchQuery.trim() 
-    ? assistants.filter(assistant => 
-        assistant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        assistant.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        assistant.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
+  const filteredAssistants = searchQuery.trim()
+    ? assistants.filter(assistant =>
+      assistant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      assistant.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      assistant.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
     : assistants.filter(assistant => {
-        const matchesCategory = activeCategory === 'my' ? assistant.category === 'my' : true;
-        return matchesCategory;
-      });
+      const matchesCategory = activeCategory === 'my' ? assistant.category === 'my' : true;
+      return matchesCategory;
+    });
 
   return (
-    <Container>
-      <Sidebar>
+    <Container 
+      key={`${theme}-${darkMode}`}
+      className={`theme-${theme} ${darkMode ? 'dark' : ''}`}
+    >
+      <Sidebar data-theme={darkMode ? 'dark' : 'light'}>
         <CategoryList>
           {categories.map(category => (
             <CategoryItem
@@ -459,13 +802,13 @@ const AssistantManager: React.FC = () => {
         <MainHeader>
           <CategoryTitle>
             <CategoryTitleIcon>
-              {searchQuery.trim() 
+              {searchQuery.trim()
                 ? <SearchOutlined />
                 : (categories.find(cat => cat.key === activeCategory)?.icon || <UserOutlined />)
               }
             </CategoryTitleIcon>
             <span>
-              {searchQuery.trim() 
+              {searchQuery.trim()
                 ? `搜索结果 (${filteredAssistants.length})`
                 : `${categories.find(cat => cat.key === activeCategory)?.label || '我的'} (${categories.find(cat => cat.key === activeCategory)?.count || 0})`
               }
@@ -490,64 +833,171 @@ const AssistantManager: React.FC = () => {
             <CreateButton
               type="primary"
               icon={<PlusOutlined />}
+              onClick={handleCreateAssistant}
             >
               创建智能体
             </CreateButton>
           </HeaderActions>
         </MainHeader>
-        
+
         <MainContent>
           <MainContentInner>
             <AssistantGrid>
-            {filteredAssistants.map(assistant => (
-              <AssistantCard
-                key={assistant.id}
-                actions={[
-                  <ActionButton
-                    key="favorite"
-                    icon={assistant.isFavorite ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
-                  />,
-                  <ActionButton key="more">
-                    <Dropdown
-                      menu={{ items: getMoreMenuItems(assistant) }}
-                      trigger={['click']}
-                      placement="bottomRight"
-                    >
-                      <MoreOutlined />
-                    </Dropdown>
-                  </ActionButton>
-                ]}
-              >
-                <AssistantHeader>
-                  <AssistantAvatar icon={getAssistantIcon(assistant)} />
-                  <AssistantInfo>
-                    <AssistantName>{assistant.name}</AssistantName>
-                    <AssistantMeta>
-                      <OwnerTag color={assistant.owner === 'my' ? 'blue' : 'default'}>
-                        {assistant.owner === 'my' ? '我的' : '其他'}
-                      </OwnerTag>
-                      {assistant.isPublic && (
-                        <Tag color="green" style={{ fontSize: '12px', margin: 0 }}>公开</Tag>
-                      )}
-                    </AssistantMeta>
-                  </AssistantInfo>
-                </AssistantHeader>
+              {filteredAssistants.map(assistant => (
+                <AssistantCard
+                  key={assistant.id}
+                  actions={[
+                    <ActionButton
+                      key="favorite"
+                      icon={assistant.isFavorite ? <StarFilled style={{ color: '#faad14' }} /> : <StarOutlined />}
+                    />,
+                    <ActionButton key="more">
+                      <Dropdown
+                        menu={{ items: getMoreMenuItems(assistant) }}
+                        trigger={['click']}
+                        placement="bottomRight"
+                      >
+                        <MoreOutlined />
+                      </Dropdown>
+                    </ActionButton>
+                  ]}
+                >
+                  <AssistantHeader>
+                    <AssistantAvatar icon={getAssistantIcon(assistant)} />
+                    <AssistantInfo>
+                      <AssistantName>{assistant.name}</AssistantName>
+                      <AssistantMeta>
+                        <OwnerTag color={assistant.owner === 'my' ? 'blue' : 'default'}>
+                          {assistant.owner === 'my' ? '我的' : '其他'}
+                        </OwnerTag>
+                        {assistant.isPublic && (
+                          <Tag color="green" style={{ fontSize: '12px', margin: 0 }}>公开</Tag>
+                        )}
+                      </AssistantMeta>
+                    </AssistantInfo>
+                  </AssistantHeader>
 
-                <AssistantDescription>
-                  {assistant.description}
-                </AssistantDescription>
+                  <AssistantDescription>
+                    {assistant.description}
+                  </AssistantDescription>
 
-                <AssistantTags>
-                  {assistant.tags.map(tag => (
-                    <SkillTag key={tag}>{tag}</SkillTag>
-                  ))}
-                </AssistantTags>
-              </AssistantCard>
-            ))}
+                  <AssistantTags>
+                    {assistant.tags.map(tag => (
+                      <SkillTag key={tag}>{tag}</SkillTag>
+                    ))}
+                  </AssistantTags>
+                </AssistantCard>
+              ))}
             </AssistantGrid>
           </MainContentInner>
         </MainContent>
       </Content>
+
+      {/* 创建智能体模态框 */}
+      <StyledModal
+        title="创建智能体"
+        open={showCreateModal}
+        onCancel={handleCloseModal}
+        footer={null}
+        width={680}
+        centered
+        destroyOnClose
+        closeIcon={<CloseOutlined style={{ color: 'var(--text-secondary)' }} />}
+      >
+        <FormItem>
+          <FormRow>
+            <FormLabelOptional>Emoji</FormLabelOptional>
+            <EmojiButton
+              onClick={() => {
+                // 这里可以弹出emoji选择器
+                console.log('选择emoji');
+              }}
+            >
+              {assistantForm.emoji || '选择'}
+            </EmojiButton>
+          </FormRow>
+        </FormItem>
+
+        <FormItem>
+          <FormRow>
+            <FormLabel>名称</FormLabel>
+            <StyledInput
+              placeholder="输入名称"
+              value={assistantForm.name}
+              onChange={(e) => handleFormChange('name', e.target.value)}
+              style={{ flex: 1 }}
+            />
+          </FormRow>
+        </FormItem>
+
+        <FormItem>
+          <FormRow>
+            <FormLabel>提示词</FormLabel>
+            <PromptContainer>
+              <StyledTextArea
+                placeholder="输入提示词"
+                value={assistantForm.prompt}
+                onChange={(e) => handleFormChange('prompt', e.target.value)}
+                showCount
+                maxLength={2000}
+              />
+              <PromptActions>
+                {promptHistory.length > 0 && (
+                  <Tooltip title="撤销上一次修改">
+                    <UndoIcon
+                      icon={<RedoOutlined />}
+                      onClick={handleUndoPrompt}
+                    />
+                  </Tooltip>
+                )}
+                <Tooltip title="优化提示词">
+                  <OptimizeIcon
+                    icon={<ThunderboltOutlined />}
+                    onClick={handleOptimizePrompt}
+                  />
+                </Tooltip>
+              </PromptActions>
+              <PromptBottomActions>
+                <TokenCount>Tokens: {assistantForm.prompt.length}</TokenCount>
+                <div></div>
+              </PromptBottomActions>
+            </PromptContainer>
+          </FormRow>
+        </FormItem>
+
+        <FormItem>
+          <FormRow>
+            <FormLabelOptional>知识库</FormLabelOptional>
+            <StyledSelect
+              mode="multiple"
+              placeholder="选择知识库"
+              options={knowledgeBaseOptions}
+              value={assistantForm.knowledgeBase}
+              onChange={(value: unknown) => handleFormChange('knowledgeBase', value as string[])}
+              suffixIcon={<DownOutlined style={{ color: 'var(--text-secondary)' }} />}
+              style={{ flex: 1 }}
+              dropdownStyle={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px'
+              }}
+            />
+          </FormRow>
+        </FormItem>
+
+        <ModalFooter>
+          <CancelButton onClick={handleCloseModal}>
+            取消
+          </CancelButton>
+          <SubmitButton
+            type="primary"
+            onClick={handleSubmitAssistant}
+            disabled={!assistantForm.name || !assistantForm.prompt}
+          >
+            创建智能体
+          </SubmitButton>
+        </ModalFooter>
+      </StyledModal>
     </Container>
   );
 };

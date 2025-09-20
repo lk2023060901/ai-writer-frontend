@@ -8,16 +8,31 @@ import styled from 'styled-components';
 const { Sider } = Layout;
 
 const StyledSider = styled(Sider)`
-  background: var(--bg-primary);
+  background: var(--bg-secondary) !important;
   border-right: none;
   height: calc(100vh - 48px); /* 减去顶部导航栏的高度 */
   overflow: hidden;
+  
+  /* 强制覆盖Ant Design的默认样式 */
+  &.ant-layout-sider {
+    background: var(--bg-secondary) !important;
+  }
+  
+  /* 暗色模式强制样式 */
+  .dark & {
+    background: #2d2d2d !important;
+    
+    &.ant-layout-sider {
+      background: #2d2d2d !important;
+    }
+  }
 
   .ant-layout-sider-children {
     display: flex;
     flex-direction: column;
     height: 100%;
     box-sizing: border-box;
+    background: inherit;
   }
 
   .sidebar-tabs {
@@ -1516,7 +1531,7 @@ const SidePanel: React.FC<SidePanelProps> = ({ inDrawer = false }) => {
   if (inDrawer) {
     // 抽屉模式：不使用Sider组件，直接渲染内容
     return (
-      <div style={{ width: '100%', height: '100%', background: 'var(--bg-primary)' }}>
+      <div style={{ width: '100%', height: '100%', background: 'var(--bg-secondary)' }}>
         <Tabs
           className="sidebar-tabs"
           activeKey={sidebarActiveTab}

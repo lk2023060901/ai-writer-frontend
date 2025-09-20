@@ -45,7 +45,7 @@ const StyledDrawer = styled.div<{ $visible: boolean }>`
   left: 0;
   width: var(--sidebar-width);
   height: calc(100vh - var(--header-height));
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   transform: translateX(${props => props.$visible ? '0' : '-100%'});
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
