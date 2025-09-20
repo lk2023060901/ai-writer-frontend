@@ -34,7 +34,7 @@ npm run lint
 
 ## 🛠️ 技术栈
 
-- **前端框架**: React 19.1.1
+- **前端框架**: React 18.3.1
 - **类型系统**: TypeScript 5.8.3  
 - **构建工具**: Vite 7.1.6
 - **状态管理**: Redux Toolkit + React-Redux

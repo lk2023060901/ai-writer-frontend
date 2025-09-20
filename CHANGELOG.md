@@ -2,6 +2,28 @@
 
 所有值得注意的项目变更都会记录在此文件中。
 
+## [1.0.2] - 2025-01-20
+
+### 🔄 版本降级
+- **[React 版本降级]** 将React从19.1.1降级至18.3.1
+  - 更新package.json中的React和react-dom版本
+  - 更新TypeScript类型定义(@types/react, @types/react-dom)
+  - 移除React 19兼容性补丁(@ant-design/v5-patch-for-react-19)
+  - 清理main.tsx中的React 19相关导入
+  - 更新README.md中的技术栈信息
+  - 重新生成package-lock.json以确保依赖一致性
+
+### ✅ 兼容性验证
+- 验证所有主要依赖对React 18的支持
+  - Ant Design 5.27.4: 支持React >=16.9.0
+  - styled-components 6.1.19: 支持React >= 16.8.0
+  - react-redux 9.2.0: 支持React ^18.0 || ^19
+  - react-router-dom 7.9.1: 支持React >=18
+
+### 📁 文档更新
+- 更新README.md中的React版本信息
+- 记录完整的降级过程和检查清单
+
 ## [1.0.1] - 2025-01-20
 
 ### 🐛 Bug修复
