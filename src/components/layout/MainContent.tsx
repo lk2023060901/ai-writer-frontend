@@ -1,14 +1,26 @@
 import TabsTypeDemo from '@/components/demo/TabsTypeDemo';
 import ModelSelectorModal from '@/components/modals/ModelSelectorModal';
+import AssistantManager from '@/components/pages/AssistantManager';
 import KnowledgeBase from '@/components/pages/KnowledgeBase';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { useModels } from '@/hooks/useModels';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import {
+  BuildOutlined,
+  BulbOutlined,
+  ClearOutlined,
   ColumnWidthOutlined,
+  CommentOutlined,
+  CompressOutlined,
   CopyOutlined,
   DownOutlined,
+  ExpandOutlined,
+  FileSearchOutlined,
+  FormatPainterOutlined,
+  FunctionOutlined,
+  GlobalOutlined,
+  LeftCircleOutlined,
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
@@ -19,23 +31,10 @@ import {
   SendOutlined,
   StopOutlined,
   ThunderboltOutlined,
-  UserOutlined,
-  CommentOutlined,
-  BulbOutlined,
-  GlobalOutlined,
-  FileSearchOutlined,
-  BuildOutlined,
-  FunctionOutlined,
-  FormatPainterOutlined,
-  ExpandOutlined,
-  CompressOutlined,
-  ClearOutlined,
   TranslationOutlined,
-  DeleteOutlined,
-  PlusOutlined,
-  LeftCircleOutlined
+  UserOutlined
 } from '@ant-design/icons';
-import { Button, Input, Layout, App, Divider } from 'antd';
+import { App, Button, Divider, Input, Layout } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -570,13 +569,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   if (currentTab && currentTab.type === 'assistant') {
     return (
       <StyledContent>
-        <div style={{
-          padding: '40px',
-          textAlign: 'center',
-          color: 'var(--text-secondary)'
-        }}>
-          智能体功能正在开发中...
-        </div>
+        <AssistantManager />
       </StyledContent>
     );
   }
@@ -791,9 +784,9 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
                   <button className="toolbar-button" onClick={() => setModelModalVisible(true)} title="选择模型">
                     <FunctionOutlined />
                   </button>
-                                  
+
                   <Divider type="vertical" style={{ margin: '0 4px', height: '16px' }} />
-                                  
+
                   {!isToolbarCollapsed && (
                     <>
                       <button className="toolbar-button" onClick={handleQuickPhrases} title="快捷短语">
@@ -810,12 +803,12 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
                       </button>
                     </>
                   )}
-                                  
+
                   <button className="toolbar-button" onClick={handleToggleToolbar} title={isToolbarCollapsed ? "展开工具栏" : "折叠工具栏"}>
                     <LeftCircleOutlined style={{ transform: isToolbarCollapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s ease' }} />
                   </button>
                 </div>
-                
+
                 <div className="right-toolbar">
                   <div className="status-info">
                     <div className="status-item">

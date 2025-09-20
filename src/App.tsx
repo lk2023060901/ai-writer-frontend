@@ -1,11 +1,11 @@
-import React from 'react';
-import { ConfigProvider, theme, App as AntApp } from 'antd';
-import { BrowserRouter } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import { store } from '@/store';
-import { useAppSelector } from '@/hooks/redux';
-import AppLayout from '@/components/layout/AppLayout';
 import ThemeProvider from '@/components/common/ThemeProvider';
+import AppLayout from '@/components/layout/AppLayout';
+import { useAppSelector } from '@/hooks/redux';
+import { store } from '@/store';
+import { App as AntApp, ConfigProvider, theme } from 'antd';
+import React from 'react';
+import { Provider } from 'react-redux';
+import { BrowserRouter } from 'react-router-dom';
 
 // 主题配置组件
 const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

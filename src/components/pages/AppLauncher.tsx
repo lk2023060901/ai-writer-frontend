@@ -1,17 +1,17 @@
-import React from 'react';
-import styled from 'styled-components';
-import {
-  AppstoreOutlined,
-  ReloadOutlined,
-  EditOutlined,
-  StarOutlined,
-  TranslationOutlined,
-  FolderOutlined,
-  CodeOutlined,
-  BookOutlined
-} from '@ant-design/icons';
 import { useAppDispatch } from '@/hooks/redux';
 import { addTab, setActiveTab, setShowAppLauncher } from '@/store/slices/uiSlice';
+import {
+  AppstoreOutlined,
+  BookOutlined,
+  CodeOutlined,
+  EditOutlined,
+  FolderOutlined,
+  ReloadOutlined,
+  RobotOutlined,
+  TranslationOutlined
+} from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
 
 const LauncherContainer = styled.div`
   display: flex;
@@ -127,7 +127,7 @@ const AppLauncher: React.FC = () => {
     {
       id: 'intelligence',
       name: '智能体',
-      icon: <StarOutlined />,
+      icon: <RobotOutlined />,
       bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
     },
     {
@@ -159,11 +159,18 @@ const AppLauncher: React.FC = () => {
   const handleAppClick = (app: AppData) => {
     console.log('点击应用:', app.name);
 
+    // 映射app.id到标签页类型
+    const typeMapping: Record<string, 'knowledge' | 'assistant' | 'chat' | 'settings'> = {
+      knowledge: 'knowledge',
+      intelligence: 'assistant',
+      assistant: 'assistant'
+    };
+
     // 创建新标签页
     const newTab = {
       id: `${app.id}-${Date.now()}`,
       title: app.name,
-      type: app.id as 'knowledge' | 'assistant' | 'chat' | 'settings',
+      type: typeMapping[app.id] || 'chat',
       closable: true,
       data: { appId: app.id }
     };
