@@ -1,5 +1,5 @@
-import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
 
 // 临时类型定义，直到导入问题解决
 type ThemeMode = 'chatgpt' | 'claude';
@@ -12,6 +12,10 @@ interface UIState {
   currentTab: string;
   activeTabId?: string;
   currentTopicId?: string;
+  currentModel: string;
+  currentModelName: string;
+  showAppLauncher: boolean;
+  showKnowledgeBase: boolean;
 }
 
 interface TabItem {
@@ -19,7 +23,7 @@ interface TabItem {
   title: string;
   type: 'chat' | 'knowledge' | 'assistant' | 'settings';
   closable: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 const initialState: UIState & {
@@ -34,6 +38,10 @@ const initialState: UIState & {
   activeTabId: 'home',
   currentTopicId: undefined,
   sidebarActiveTab: 'assistants',
+  currentModel: 'claude-3-5-sonnet-20241022',
+  currentModelName: 'Claude 3.5 Sonnet',
+  showAppLauncher: false,
+  showKnowledgeBase: false,
   tabs: [
     {
       id: 'home',
@@ -100,6 +108,22 @@ const uiSlice = createSlice({
     setCurrentTopic: (state, action: PayloadAction<string | undefined>) => {
       state.currentTopicId = action.payload;
     },
+    setCurrentModel: (state, action: PayloadAction<{ id: string; name: string }>) => {
+      state.currentModel = action.payload.id;
+      state.currentModelName = action.payload.name;
+    },
+    setShowAppLauncher: (state, action: PayloadAction<boolean>) => {
+      state.showAppLauncher = action.payload;
+    },
+    toggleAppLauncher: (state) => {
+      state.showAppLauncher = !state.showAppLauncher;
+    },
+    setShowKnowledgeBase: (state, action: PayloadAction<boolean>) => {
+      state.showKnowledgeBase = action.payload;
+    },
+    toggleKnowledgeBase: (state) => {
+      state.showKnowledgeBase = !state.showKnowledgeBase;
+    },
   },
 });
 
@@ -115,6 +139,11 @@ export const {
   setActiveTab,
   updateTabTitle,
   setCurrentTopic,
+  setCurrentModel,
+  setShowAppLauncher,
+  toggleAppLauncher,
+  setShowKnowledgeBase,
+  toggleKnowledgeBase,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

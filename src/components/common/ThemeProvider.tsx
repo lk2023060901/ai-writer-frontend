@@ -37,7 +37,7 @@ const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.1)');
         root.style.setProperty('--accent-color', '#10a37f');
         root.style.setProperty('--sidebar-width', '260px');
-        root.style.setProperty('--header-height', '0px'); // ChatGPT 无顶部导航
+        root.style.setProperty('--header-height', '48px');
       } else {
         // ChatGPT 亮色主题
         root.style.setProperty('--bg-primary', '#ffffff');
@@ -49,7 +49,7 @@ const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         root.style.setProperty('--border-color', '#e5e5e5');
         root.style.setProperty('--accent-color', '#10a37f');
         root.style.setProperty('--sidebar-width', '260px');
-        root.style.setProperty('--header-height', '0px');
+        root.style.setProperty('--header-height', '48px');
       }
     } else if (theme === 'claude') {
       if (darkMode) {

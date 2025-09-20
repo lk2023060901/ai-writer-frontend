@@ -1,5 +1,14 @@
-import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
+import { createSlice } from '@reduxjs/toolkit';
+
+interface Attachment {
+  id: string;
+  type: 'image' | 'file' | 'document';
+  name: string;
+  url: string;
+  size: number;
+  mimeType: string;
+}
 
 // 临时类型定义
 interface Message {
@@ -10,7 +19,7 @@ interface Message {
   tokens?: number;
   model?: string;
   createdAt: string;
-  attachments?: any[];
+  attachments?: Attachment[];
 }
 
 interface Topic {

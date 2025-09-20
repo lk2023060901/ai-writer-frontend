@@ -85,7 +85,7 @@ export interface TabItem {
   title: string;
   type: 'chat' | 'knowledge' | 'assistant' | 'settings';
   closable: boolean;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 // API 响应类型

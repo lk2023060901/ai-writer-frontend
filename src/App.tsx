@@ -25,6 +25,7 @@ const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             bodyBg: 'transparent',
             headerBg: 'transparent',
             siderBg: 'transparent',
+            headerHeight: 48,
           },
           Button: {
             borderRadius: 6,

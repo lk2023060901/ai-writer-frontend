@@ -1,18 +1,29 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Layout, Input, Button, message } from 'antd';
-import {
-  SendOutlined,
-  PaperClipOutlined,
-  UserOutlined,
-  RobotOutlined,
-  ReloadOutlined,
-  CopyOutlined,
-  StopOutlined
-} from '@ant-design/icons';
-import styled from 'styled-components';
-import { useAppSelector } from '@/hooks/redux';
-import { useStreamingChat } from '@/hooks/useStreamingChat';
 import TabsTypeDemo from '@/components/demo/TabsTypeDemo';
+import ModelSelectorModal from '@/components/modals/ModelSelectorModal';
+import KnowledgeBase from '@/components/pages/KnowledgeBase';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { useModels } from '@/hooks/useModels';
+import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { toggleSidebar } from '@/store/slices/uiSlice';
+import {
+  ColumnWidthOutlined,
+  CopyOutlined,
+  DownOutlined,
+  MenuFoldOutlined,
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  PaperClipOutlined,
+  ReloadOutlined,
+  RobotOutlined,
+  SearchOutlined,
+  SendOutlined,
+  StopOutlined,
+  ThunderboltOutlined,
+  UserOutlined
+} from '@ant-design/icons';
+import { Button, Input, Layout, message } from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import styled from 'styled-components';
 
 interface StreamMessage {
   id: string;
@@ -36,136 +47,135 @@ const ChatContainer = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 800px;
-  margin: 0 auto;
-  width: 100%;
+  margin: 0 16px;
   padding: 0 16px;
+  border-radius: 12px;
+  background: var(--bg-primary);
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 `;
 
-const MessagesArea = styled.div`
+const ChatToolbar = styled.div`
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  justify-content: space-between;
+  padding: 0 16px;
+  margin: 8px 0;
+  background: var(--bg-secondary);
+`;
+
+const ToolbarLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ToolbarRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ModelButton = styled(Button)`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+  }
+
+  .anticon {
+    color: var(--accent-color);
+  }
+
+  .anticon-down {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+`;
+
+const MessageArea = styled.div<{ $isNarrow?: boolean }>`
   flex: 1;
   overflow-y: auto;
-  padding: 16px 0;
+  overflow-x: hidden;
+  padding: 20px;
   scroll-behavior: smooth;
+  min-height: 0;
+  max-height: 100%;
+  background: var(--bg-primary);
+  transition: max-width 0.3s ease, margin 0.3s ease;
 
+  /* 基于视口宽度的80%缩放 */
+  ${props => props.$isNarrow && `
+    max-width: 80vw;
+    margin: 0 auto;
+  `}
+
+  ${props => !props.$isNarrow && `
+    max-width: 100%;
+    margin: 0;
+  `}
+
+  /* 自定义滚动条样式 */
   &::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
   }
 
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    margin: 4px 0;
   }
 
   &::-webkit-scrollbar-thumb {
     background: var(--border-color);
-    border-radius: 3px;
-  }
+    border-radius: 4px;
+    border: 1px solid var(--bg-primary);
 
-  &::-webkit-scrollbar-thumb:hover {
-    background: var(--text-tertiary);
-  }
-`;
-
-const MessageItem = styled.div<{ $isUser: boolean; $isStreaming?: boolean }>`
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  align-items: flex-start;
-
-  .message-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: ${props => props.$isUser ? 'var(--accent-color)' : 'var(--bg-secondary)'};
-    color: ${props => props.$isUser ? 'white' : 'var(--text-primary)'};
-    position: relative;
-
-    ${props => props.$isStreaming && `
-      &::after {
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        border-radius: 50%;
-        border: 2px solid var(--accent-color);
-        border-top: 2px solid transparent;
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `}
-  }
-
-  .message-content {
-    flex: 1;
-    background: ${props => props.$isUser ? 'var(--bg-secondary)' : 'transparent'};
-    border-radius: 8px;
-    padding: ${props => props.$isUser ? '12px 16px' : '0'};
-    color: var(--text-primary);
-    line-height: 1.6;
-    word-wrap: break-word;
-
-    .message-text {
-      white-space: pre-wrap;
-      margin: 0;
-      position: relative;
-
-      ${props => props.$isStreaming && `
-        &::after {
-          content: '▋';
-          animation: blink 1s infinite;
-          color: var(--accent-color);
-        }
-
-        @keyframes blink {
-          0%, 50% { opacity: 1; }
-          51%, 100% { opacity: 0; }
-        }
-      `}
-    }
-
-    .message-actions {
-      margin-top: 8px;
-      display: flex;
-      gap: 8px;
-
-      .action-button {
-        border: none;
-        background: transparent;
-        color: var(--text-tertiary);
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-
-        &:hover {
-          background: var(--bg-tertiary);
-          color: var(--text-secondary);
-        }
-
-        &:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-      }
+    &:hover {
+      background: var(--text-tertiary);
     }
   }
+
+  /* Firefox 滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--bg-secondary);
 `;
 
-const InputArea = styled.div`
+
+const InputArea = styled.div<{ $isNarrow?: boolean }>`
   border-top: none;
   padding: 16px 0 24px;
   background: var(--bg-primary);
+  flex-shrink: 0;
+  transition: max-width 0.3s ease, margin 0.3s ease;
+
+  /* 基于视口宽度的80%缩放 */
+  ${props => props.$isNarrow && `
+    max-width: 80vw;
+    margin: 0 auto;
+  `}
+
+  ${props => !props.$isNarrow && `
+    max-width: 100%;
+    margin: 0;
+  `}
 
   .input-container {
     position: relative;
@@ -251,80 +261,78 @@ const InputArea = styled.div`
   }
 `;
 
+
 const WelcomeArea = styled.div`
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  flex-shrink: 0;
+`;
+
+const ChatArea = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: var(--text-secondary);
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 40px 20px;
-
-  .welcome-title {
-    font-size: 28px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 12px;
-  }
-
-  .welcome-subtitle {
-    font-size: 16px;
-    color: var(--text-secondary);
-    margin-bottom: 32px;
-  }
-
-  .quick-actions {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
-    width: 100%;
-    max-width: 500px;
-  }
-
-  .quick-action {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 16px;
-    cursor: pointer;
-    transition: all 0.2s;
-
-    &:hover {
-      border-color: var(--accent-color);
-      transform: translateY(-2px);
-    }
-
-    .action-icon {
-      font-size: 20px;
-      color: var(--accent-color);
-      margin-bottom: 8px;
-    }
-
-    .action-title {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-primary);
-      margin-bottom: 4px;
-    }
-
-    .action-desc {
-      font-size: 12px;
-      color: var(--text-tertiary);
-    }
-  }
+  overflow: hidden;
+  min-height: 0;
+  background: var(--bg-primary);
+  border-radius: 8px;
 `;
 
-const MainContent: React.FC = () => {
-  const [messages, setMessages] = useState<StreamMessage[]>([]);
+interface MainContentProps {
+  onDrawerOpen?: () => void;
+}
+
+const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
+  const [messages, setMessages] = useState<StreamMessage[]>([
+    {
+      id: '1',
+      content: '你好！我想了解一下你的功能',
+      role: 'user',
+      timestamp: new Date(Date.now() - 300000).toLocaleString(),
+      isStreaming: false
+    },
+    {
+      id: '2',
+      content: '你好！我是Claude，一个AI助手。我可以帮助你：\n\n• 回答各种问题\n• 协助写作和编辑\n• 代码编程支持\n• 数据分析\n• 创意思考\n\n请问有什么我可以帮助你的吗？',
+      role: 'assistant',
+      timestamp: new Date(Date.now() - 290000).toLocaleString(),
+      isStreaming: false
+    },
+    {
+      id: '3',
+      content: '太好了！能帮我写一个React组件的示例吗？',
+      role: 'user',
+      timestamp: new Date(Date.now() - 120000).toLocaleString(),
+      isStreaming: false
+    },
+    {
+      id: '4',
+      content: '当然可以！下面是一个简单的React计数器组件示例：\n\n``jsx\nimport React, { useState } from \'react\';\n\nfunction Counter() {\n  const [count, setCount] = useState(0);\n\n  return (\n    <div>\n      <h2>计数器: {count}</h2>\n      <button onClick={() => setCount(count + 1)}>\n        增加\n      </button>\n      <button onClick={() => setCount(count - 1)}>\n        减少\n      </button>\n      <button onClick={() => setCount(0)}>\n        重置\n      </button>\n    </div>\n  );\n}\n\nexport default Counter;\n```\n\n这个组件使用了React的useState Hook来管理状态，包含了增加、减少和重置功能。',
+      role: 'assistant',
+      timestamp: new Date(Date.now() - 110000).toLocaleString(),
+      isStreaming: false
+    }
+  ]);
   const [inputValue, setInputValue] = useState('');
   const [showTabsDemo, setShowTabsDemo] = useState(false);
+  const [modelModalVisible, setModelModalVisible] = useState(false);
+  const [isNarrowMode, setIsNarrowMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { activeTabId, currentTopicId, sidebarActiveTab } = useAppSelector(state => state.ui);
+  const dispatch = useAppDispatch();
+  const { activeTabId, currentTopicId, sidebarCollapsed, currentModelName, tabs } = useAppSelector(state => state.ui);
+
+  // 获取当前活动标签页
+  const currentTab = tabs.find(tab => tab.id === activeTabId);
+  const { providers, loading: modelsLoading } = useModels();
   const [currentTopicIdRef, setCurrentTopicIdRef] = useState<string | undefined>(currentTopicId);
-  const [previousSidebarTab, setPreviousSidebarTab] = useState<string>(sidebarActiveTab);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -343,21 +351,6 @@ const MainContent: React.FC = () => {
       setCurrentTopicIdRef(currentTopicId);
     }
   }, [currentTopicId, currentTopicIdRef]);
-
-  // 监听侧边栏标签页切换，清空聊天内容
-  useEffect(() => {
-    if (sidebarActiveTab !== previousSidebarTab) {
-      // 侧边栏标签页已切换，清空当前聊天内容
-      setMessages([]);
-      setInputValue('');
-      setPreviousSidebarTab(sidebarActiveTab);
-
-      // 如果切换到对话标签页，且没有选中话题，则清空话题关联
-      if (sidebarActiveTab === 'topics' && !currentTopicId) {
-        setCurrentTopicIdRef(undefined);
-      }
-    }
-  }, [sidebarActiveTab, previousSidebarTab, currentTopicId]);
 
   // 处理流式消息更新
   const handleStreamMessage = useCallback((streamMessage: StreamMessage) => {
@@ -442,29 +435,9 @@ const MainContent: React.FC = () => {
     streamingChat.stopStreaming();
   };
 
-  const quickActions = [
-    {
-      icon: <RobotOutlined />,
-      title: '创建助手',
-      desc: '自定义AI助手来完成特定任务',
-      onClick: () => console.log('创建助手'),
-    },
-    {
-      icon: <PaperClipOutlined />,
-      title: '上传文档',
-      desc: '添加文档到知识库进行分析',
-      onClick: () => console.log('上传文档'),
-    },
-    {
-      icon: <RobotOutlined />,
-      title: 'Tabs类型演示',
-      desc: '查看不同类型的Tabs组件效果',
-      onClick: () => setShowTabsDemo(true),
-    },
-  ];
-
-  // 如果是首页且没有消息，显示欢迎页面
-  const showWelcome = activeTabId === 'home' && messages.length === 0;
+  const handleToggleWidth = () => {
+    setIsNarrowMode(!isNarrowMode);
+  };
 
   // 如果显示Tabs演示页面
   if (showTabsDemo) {
@@ -480,108 +453,254 @@ const MainContent: React.FC = () => {
     );
   }
 
+  // 如果当前标签页是应用标签页，显示对应内容
+  if (currentTab && currentTab.type === 'knowledge') {
+    return (
+      <StyledContent>
+        <KnowledgeBase />
+      </StyledContent>
+    );
+  }
+
+  if (currentTab && currentTab.type === 'assistant') {
+    return (
+      <StyledContent>
+        <div style={{
+          padding: '40px',
+          textAlign: 'center',
+          color: 'var(--text-secondary)'
+        }}>
+          智能体功能正在开发中...
+        </div>
+      </StyledContent>
+    );
+  }
+
   return (
     <StyledContent>
       <ChatContainer>
-        {showWelcome ? (
-          <WelcomeArea>
-            <div className="welcome-title">欢迎使用AI工作台</div>
-            <div className="welcome-subtitle">
-              通过智能助手提升您的工作效率，开始一段全新的AI协作体验
-            </div>
-            <div className="quick-actions">
-              {quickActions.map((action, index) => (
-                <div
-                  key={index}
-                  className="quick-action"
-                  onClick={action.onClick}
-                >
-                  <div className="action-icon">{action.icon}</div>
-                  <div className="action-title">{action.title}</div>
-                  <div className="action-desc">{action.desc}</div>
-                </div>
-              ))}
-            </div>
-          </WelcomeArea>
-        ) : (
-          <MessagesArea>
+        <ChatToolbar>
+          <ToolbarLeft>
+            <Button
+              type="text"
+              icon={sidebarCollapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => dispatch(toggleSidebar())}
+              style={{
+                fontSize: '16px',
+                width: 36,
+                height: 36
+              }}
+              title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+            />
+            {sidebarCollapsed && (
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                onClick={onDrawerOpen}
+                style={{
+                  fontSize: '16px',
+                  width: 36,
+                  height: 36
+                }}
+                title="打开侧边栏抽屉"
+              />
+            )}
+            <ModelButton
+              type="text"
+              icon={<ThunderboltOutlined />}
+              onClick={() => setModelModalVisible(true)}
+            >
+              {currentModelName || 'Claude 3.5 Sonnet'}
+              <DownOutlined />
+            </ModelButton>
+          </ToolbarLeft>
+
+          <ToolbarRight>
+            <Button
+              type="text"
+              icon={<SearchOutlined />}
+              style={{
+                fontSize: '16px',
+                width: 36,
+                height: 36
+              }}
+              title="搜索对话内容"
+            />
+            <Button
+              type="text"
+              icon={<ColumnWidthOutlined />}
+              onClick={handleToggleWidth}
+              style={{
+                fontSize: '16px',
+                width: 36,
+                height: 36,
+                color: isNarrowMode ? 'var(--accent-color)' : undefined
+              }}
+              title={isNarrowMode ? "恢复到100%宽度" : "缩放到80%宽度"}
+            />
+          </ToolbarRight>
+        </ChatToolbar>
+
+        <WelcomeArea>
+          欢迎使用 AI 工作台 - {messages.length === 0 ? '开始新的对话' : `当前对话中有 ${messages.length} 条消息`}
+        </WelcomeArea>
+
+        <ChatArea>
+          <MessageArea $isNarrow={isNarrowMode}>
             {messages.map((message) => (
-              <MessageItem
+              <div
                 key={message.id}
-                $isUser={message.role === 'user'}
-                $isStreaming={message.isStreaming}
+                style={{
+                  display: 'flex',
+                  justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                  marginBottom: '16px',
+                  width: '100%'
+                }}
               >
-                <div className="message-avatar">
-                  {message.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
-                </div>
-                <div className="message-content">
-                  <div className="message-text">{message.content}</div>
-                  {message.role === 'assistant' && !message.isStreaming && (
-                    <div className="message-actions">
-                      <button
-                        className="action-button"
-                        onClick={() => handleCopyMessage(message.content)}
-                        disabled={streamingChat.isStreaming}
-                      >
-                        <CopyOutlined />
-                        复制
-                      </button>
-                      <button
-                        className="action-button"
-                        onClick={() => handleRegenerateMessage(message.id)}
-                        disabled={streamingChat.isStreaming}
-                      >
-                        <ReloadOutlined />
-                        重新生成
-                      </button>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  maxWidth: '70%',
+                  flexDirection: message.role === 'user' ? 'row-reverse' : 'row'
+                }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    background: message.role === 'user' ? 'var(--accent-color)' : 'var(--bg-secondary)',
+                    color: message.role === 'user' ? 'white' : 'var(--text-primary)',
+                    border: message.role === 'user' ? 'none' : '1px solid var(--border-color)',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                  }}>
+                    {message.role === 'user' ? <UserOutlined /> : <RobotOutlined />}
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: message.role === 'user' ? 'flex-end' : 'flex-start',
+                    flex: 1,
+                    minWidth: 0
+                  }}>
+                    <div style={{
+                      background: message.role === 'user' ? 'var(--accent-color)' : 'var(--bg-secondary)',
+                      color: message.role === 'user' ? 'white' : 'var(--text-primary)',
+                      padding: '10px 16px',
+                      borderRadius: message.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                      lineHeight: '1.5',
+                      wordWrap: 'break-word',
+                      whiteSpace: 'pre-wrap',
+                      maxWidth: '100%',
+                      border: message.role === 'user' ? 'none' : '1px solid var(--border-color)',
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                    }}>
+                      {message.content}
                     </div>
-                  )}
+                    {message.role === 'assistant' && !message.isStreaming && (
+                      <div style={{
+                        display: 'flex',
+                        gap: '8px',
+                        marginTop: '8px'
+                      }}>
+                        <button
+                          style={{
+                            padding: '4px 10px',
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--text-tertiary)',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          onClick={() => handleCopyMessage(message.content)}
+                          disabled={streamingChat.isStreaming}
+                        >
+                          <CopyOutlined />
+                          复制
+                        </button>
+                        <button
+                          style={{
+                            padding: '4px 10px',
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--text-tertiary)',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          onClick={() => handleRegenerateMessage(message.id)}
+                          disabled={streamingChat.isStreaming}
+                        >
+                          <ReloadOutlined />
+                          重新生成
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </MessageItem>
+              </div>
             ))}
             <div ref={messagesEndRef} />
-          </MessagesArea>
-        )}
+          </MessageArea>
 
-        <InputArea>
-          <div className="input-container">
-            <TextArea
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="输入消息... (Shift+Enter 换行)"
-              autoSize={{ minRows: 1, maxRows: 6 }}
-              disabled={streamingChat.isStreaming}
-            />
-            <div className="input-actions">
-              <div className="left-actions">
-                <button className="action-button" title="上传文件">
-                  <PaperClipOutlined />
-                </button>
+          <InputArea $isNarrow={isNarrowMode}>
+            <div className="input-container">
+              <TextArea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="输入消息... (Shift+Enter 换行)"
+                autoSize={{ minRows: 1, maxRows: 6 }}
+                disabled={streamingChat.isStreaming}
+              />
+              <div className="input-actions">
+                <div className="left-actions">
+                  <button className="action-button" title="上传文件">
+                    <PaperClipOutlined />
+                  </button>
+                </div>
+                {streamingChat.isStreaming ? (
+                  <button
+                    className="send-button"
+                    onClick={handleStopStreaming}
+                    style={{ background: 'var(--text-tertiary)' }}
+                  >
+                    <StopOutlined />
+                    停止
+                  </button>
+                ) : (
+                  <button
+                    className="send-button"
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim()}
+                  >
+                    <SendOutlined />
+                    发送
+                  </button>
+                )}
               </div>
-              {streamingChat.isStreaming ? (
-                <button
-                  className="send-button"
-                  onClick={handleStopStreaming}
-                  style={{ background: 'var(--text-tertiary)' }}
-                >
-                  <StopOutlined />
-                  停止
-                </button>
-              ) : (
-                <button
-                  className="send-button"
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim()}
-                >
-                  <SendOutlined />
-                  发送
-                </button>
-              )}
             </div>
-          </div>
-        </InputArea>
+          </InputArea>
+        </ChatArea>
       </ChatContainer>
+
+      {/* AI模型选择对话框 */}
+      <ModelSelectorModal
+        visible={modelModalVisible}
+        onClose={() => setModelModalVisible(false)}
+        providers={providers}
+        loading={modelsLoading}
+      />
     </StyledContent>
   );
 };

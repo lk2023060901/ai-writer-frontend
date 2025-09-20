@@ -23,6 +23,15 @@ interface Topic {
   lastMessage?: string;
 }
 
+interface Attachment {
+  id: string;
+  type: 'image' | 'file' | 'document';
+  name: string;
+  url: string;
+  size: number;
+  mimeType: string;
+}
+
 interface Message {
   id: string;
   topicId: string;
@@ -31,7 +40,7 @@ interface Message {
   tokens?: number;
   model?: string;
   createdAt: string;
-  attachments?: any[];
+  attachments?: Attachment[];
 }
 
 interface ApiResponse<T> {
@@ -66,19 +75,37 @@ interface Document {
   uploadedAt: string;
 }
 
+interface ProviderConfig {
+  id: string;
+  name: string;
+  apiKey: string;
+  baseUrl?: string;
+  models: string[];
+  enabled: boolean;
+}
+
 interface Settings {
   streaming: boolean;
   autoSave: boolean;
   darkMode: boolean;
   theme: 'chatgpt' | 'claude';
   defaultModel: string;
-  providers: any[];
+  providers: ProviderConfig[];
+}
+
+interface SearchResult {
+  id: string;
+  type: 'topic' | 'message';
+  title: string;
+  content: string;
+  highlight: string;
+  createdAt: string;
 }
 
 // 基础查询配置
 const baseQuery = fetchBaseQuery({
   baseUrl: '/api',
-  prepareHeaders: (headers, { getState: _getState }) => {
+  prepareHeaders: (headers) => {
     // 可以在这里添加认证token
     headers.set('Content-Type', 'application/json');
     return headers;
@@ -170,7 +197,7 @@ export const apiSlice = createApi({
     sendMessage: builder.mutation<ApiResponse<Message>, {
       topicId: string;
       content: string;
-      attachments?: any[]
+      attachments?: Attachment[]
     }>({
       query: ({ topicId, content, attachments }) => ({
         url: `/topics/${topicId}/messages`,
@@ -191,7 +218,7 @@ export const apiSlice = createApi({
         url: `/messages/${messageId}/regenerate`,
         method: 'POST',
       }),
-      invalidatesTags: (_result, _error, _messageId) => ['Message'],
+      invalidatesTags: () => ['Message'],
     }),
 
     // 知识库相关API
@@ -261,7 +288,7 @@ export const apiSlice = createApi({
     }),
 
     // 搜索API
-    search: builder.query<ApiResponse<any[]>, { query: string; type?: 'all' | 'topics' | 'messages' }>({
+    search: builder.query<ApiResponse<SearchResult[]>, { query: string; type?: 'all' | 'topics' | 'messages' }>({
       query: ({ query, type = 'all' }) => ({
         url: '/search',
         params: { q: query, type },

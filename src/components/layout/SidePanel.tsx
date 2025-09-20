@@ -1,9 +1,9 @@
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { setCurrentTopic, setSidebarActiveTab } from '@/store/slices/uiSlice';
+import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined, QuestionCircleOutlined, RightOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
+import { Dropdown, Input, Layout, Modal, Select, Slider, Switch, Tabs, Tooltip } from 'antd';
 import React, { useState } from 'react';
-import { Layout, Tabs, Modal, Input, Dropdown, Switch, Slider, Tooltip, Select } from 'antd';
-import { RobotOutlined, PlusOutlined, SearchOutlined, MessageOutlined, MoreOutlined, EditOutlined, DeleteOutlined, DownOutlined, RightOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { useAppSelector, useAppDispatch } from '@/hooks/redux';
-import { setSidebarActiveTab, setCurrentTopic } from '@/store/slices/uiSlice';
 
 const { Sider } = Layout;
 
@@ -724,28 +724,15 @@ const formatMessageCount = (count: number): string => {
   return count.toString();
 };
 
-// 格式化时间显示
-const formatTime = (timeString: string): string => {
-  const now = new Date();
-  const time = new Date(timeString);
-  const diff = now.getTime() - time.getTime();
 
-  if (diff < 60000) { // 小于1分钟
-    return '刚刚';
-  } else if (diff < 3600000) { // 小于1小时
-    return `${Math.floor(diff / 60000)}分钟前`;
-  } else if (diff < 86400000) { // 小于1天
-    return `${Math.floor(diff / 3600000)}小时前`;
-  } else if (diff < 604800000) { // 小于1周
-    return `${Math.floor(diff / 86400000)}天前`;
-  } else {
-    return time.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
-  }
-};
 
-const SidePanel: React.FC = () => {
+interface SidePanelProps {
+  inDrawer?: boolean;
+}
+
+const SidePanel: React.FC<SidePanelProps> = ({ inDrawer = false }) => {
   const dispatch = useAppDispatch();
-  const { sidebarActiveTab } = useAppSelector(state => state.ui);
+  const { sidebarActiveTab, sidebarCollapsed } = useAppSelector(state => state.ui);
 
   // 助手管理状态
   const [assistants, setAssistants] = useState<Assistant[]>([
@@ -846,7 +833,7 @@ const SidePanel: React.FC = () => {
   });
 
   const handleTabChange = (key: string) => {
-    dispatch(setSidebarActiveTab(key as any));
+    dispatch(setSidebarActiveTab(key as 'assistants' | 'topics' | 'settings'));
   };
 
   const handleAssistantClick = (assistantId: string) => {
@@ -930,7 +917,7 @@ const SidePanel: React.FC = () => {
   };
 
   // 设置值更新处理
-  const updateSettingValue = (key: keyof typeof settingsValues, value: any) => {
+  const updateSettingValue = (key: keyof typeof settingsValues, value: string | number | boolean) => {
     setSettingsValues(prev => ({
       ...prev,
       [key]: value
@@ -1525,9 +1512,51 @@ const SidePanel: React.FC = () => {
     </SettingsContainer>
   );
 
+  // Drawer模式下总是显示完整内容，普通模式下根据状态显示
+  if (inDrawer) {
+    // 抽屉模式：不使用Sider组件，直接渲染内容
+    return (
+      <div style={{ width: '100%', height: '100%', background: 'var(--bg-primary)' }}>
+        <Tabs
+          className="sidebar-tabs"
+          activeKey={sidebarActiveTab}
+          onChange={handleTabChange}
+          tabPosition="top"
+          size="small"
+          type="line"
+          destroyOnHidden={true}
+          items={[
+            {
+              key: 'assistants',
+              label: '助手',
+              children: assistantsTabContent,
+            },
+            {
+              key: 'topics',
+              label: '话题',
+              children: topicsTabContent,
+            },
+            {
+              key: 'settings',
+              label: '设置',
+              children: settingsTabContent,
+            },
+          ]}
+        />
+      </div>
+    );
+  }
+
+  // 普通模式：使用Sider组件，支持收起/展开
   return (
     <>
-      <StyledSider width="var(--sidebar-width)" theme="light">
+      <StyledSider
+        width={sidebarCollapsed ? 0 : "var(--sidebar-width)"}
+        collapsed={sidebarCollapsed}
+        collapsedWidth={0}
+        theme="light"
+        trigger={null}
+      >
         <Tabs
           className="sidebar-tabs"
           activeKey={sidebarActiveTab}

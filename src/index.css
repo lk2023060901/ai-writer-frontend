@@ -10,6 +10,9 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* 确保header-height始终有值 */
+  --header-height: 48px;
 }
 
 * {

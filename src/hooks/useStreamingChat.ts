@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 interface StreamMessage {
   id: string;
@@ -165,9 +165,7 @@ export const useStreamingChat = (options: StreamingChatOptions = {}) => {
 
   // 模拟流式响应（开发阶段使用）
   const sendMessageMock = useCallback(async (
-    content: string,
-    _assistantId?: string,
-    _topicId?: string
+    content: string
   ): Promise<StreamMessage | null> => {
     try {
       setIsStreaming(true);

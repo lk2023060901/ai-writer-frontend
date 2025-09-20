@@ -1,15 +1,15 @@
-import React from 'react';
-import { Layout, Button, Tabs } from 'antd';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux';
+import { removeTab, setActiveTab, toggleAppLauncher, toggleDarkMode } from '@/store/slices/uiSlice';
 import {
   HomeOutlined,
+  MoonOutlined,
   PlusOutlined,
   SettingOutlined,
-  MoonOutlined,
   SunOutlined
 } from '@ant-design/icons';
+import { Button, Layout, Tabs } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useAppSelector, useAppDispatch } from '@/hooks/redux';
-import { removeTab, setActiveTab, toggleDarkMode } from '@/store/slices/uiSlice';
 
 const { Header } = Layout;
 
@@ -17,9 +17,13 @@ const StyledHeader = styled(Header)`
   height: 48px;
   padding: 0 8px 0 0;
   background: var(--bg-primary);
-  border-bottom: none;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1001; /* 确保在所有其他元素之上 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 
   .ant-tabs {
     flex: 1;
@@ -182,7 +186,7 @@ const StyledHeader = styled(Header)`
   }
 `;
 
-const ActionButton = styled(Button)<{ $active?: boolean }>`
+const ActionButton = styled(Button) <{ $active?: boolean }>`
   /* 彻底清除所有默认样式 */
   border: none !important;
   background: transparent !important;
@@ -270,8 +274,8 @@ const TopNavigation: React.FC = () => {
     if (action === 'remove') {
       dispatch(removeTab(targetKey as string));
     } else if (action === 'add') {
-      // 处理添加新标签页的逻辑 - 这里可以显示下拉菜单或创建新标签
-      console.log('Add new tab');
+      // 切换应用启动器显示状态
+      dispatch(toggleAppLauncher());
     }
   };
 
