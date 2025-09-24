@@ -1,10 +1,13 @@
 import TabsTypeDemo from '@/components/demo/TabsTypeDemo';
+import DesignSystemDemo from '@/components/demo/DesignSystemDemo';
 import ModelSelectorModal from '@/components/modals/ModelSelectorModal';
-import AssistantManager from '@/components/pages/AssistantManager';
+// import AssistantManager from '@/components/pages/AssistantManager';
+import { AssistantManagerRefactored as AssistantManager } from '@/components/assistant-manager';
 import KnowledgeBase from '@/components/pages/KnowledgeBase';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
 import { useModels } from '@/hooks/useModels';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { useChatTracking, useModelTracking, useUITracking, useComponentTracking } from '@/hooks/useTracking';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import {
   BuildOutlined,
@@ -50,7 +53,7 @@ const { Content } = Layout;
 const { TextArea } = Input;
 
 const StyledContent = styled(Content)`
-  background: var(--bg-primary);
+  background: var(--ds-bg-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -60,65 +63,65 @@ const ChatContainer = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
-  padding: 0 16px;
-  border-radius: 12px;
-  background: var(--bg-primary);
+  margin: 0 var(--ds-spacing-md);
+  padding: 0 var(--ds-spacing-md);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-bg-primary);
   min-height: 0;
   max-height: 100%;
   overflow: hidden;
 `;
 
 const ChatToolbar = styled.div`
-  height: 48px;
-  border-radius: 8px;
+  height: var(--ds-header-height);
+  border-radius: var(--ds-radius-lg);
   display: flex;
   align-items: center;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: var(--ds-bg-secondary);
+  border: 1px solid var(--ds-border-default);
   flex-shrink: 0;
   justify-content: space-between;
-  padding: 0 16px;
-  margin: 8px 0;
+  padding: 0 var(--ds-spacing-md);
+  margin: var(--ds-spacing-sm) 0;
 `;
 
 const ToolbarLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ds-spacing-sm);
 `;
 
 const ToolbarRight = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--ds-spacing-sm);
 `;
 
 const ModelButton = styled(Button)`
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--ds-spacing-xs);
   height: 36px;
-  padding: 0 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 14px;
+  padding: 0 var(--ds-spacing-sm);
+  background: var(--ds-bg-tertiary);
+  border: 1px solid var(--ds-border-default);
+  color: var(--ds-text-primary);
+  font-size: var(--ds-font-size-sm);
   transition: all 0.2s;
 
   &:hover {
-    background: var(--bg-tertiary);
-    border-color: var(--accent-color);
-    color: var(--text-primary);
+    background: var(--ds-bg-tertiary);
+    border-color: var(--ds-accent-primary);
+    color: var(--ds-text-primary);
   }
 
   .anticon {
-    color: var(--accent-color);
+    color: var(--ds-accent-primary);
   }
 
   .anticon-down {
-    font-size: 12px;
-    color: var(--text-secondary);
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-text-secondary);
   }
 `;
 
@@ -126,63 +129,63 @@ const MessageArea = styled.div`
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
+  padding: var(--ds-spacing-lg);
   scroll-behavior: smooth;
   min-height: 0;
   max-height: 100%;
-  background: var(--bg-primary);
+  background: var(--ds-bg-primary);
 
   /* 自定义滚动条样式 */
   &::-webkit-scrollbar {
-    width: 8px;
+    width: var(--ds-spacing-sm);
   }
 
   &::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-    border-radius: 4px;
-    margin: 4px 0;
+    background: var(--ds-bg-secondary);
+    border-radius: var(--ds-radius-sm);
+    margin: var(--ds-spacing-xs) 0;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
-    border: 1px solid var(--bg-primary);
+    background: var(--ds-border-default);
+    border-radius: var(--ds-radius-sm);
+    border: 1px solid var(--ds-bg-primary);
 
     &:hover {
-      background: var(--text-tertiary);
+      background: var(--ds-text-tertiary);
     }
   }
 
   /* Firefox 滚动条 */
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) var(--bg-secondary);
+  scrollbar-color: var(--ds-border-default) var(--ds-bg-secondary);
 `;
 
 
 const InputArea = styled.div`
   border-top: none;
-  padding: 16px 0 24px;
-  background: var(--bg-primary);
+  padding: var(--ds-spacing-md) 0 var(--ds-spacing-lg);
+  background: var(--ds-bg-primary);
   flex-shrink: 0;
 
   .input-container {
     position: relative;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
+    background: var(--ds-bg-secondary);
+    border: 1px solid var(--ds-border-default);
+    border-radius: var(--ds-radius-lg);
+    padding: var(--ds-spacing-sm);
 
     &:focus-within {
-      border-color: var(--accent-color);
-      box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.1);
+      border-color: var(--ds-accent-primary);
+      box-shadow: 0 0 0 2px var(--ds-accent-subtle);
     }
 
     .ant-input {
       border: none;
       background: transparent;
       padding: 0;
-      color: var(--text-primary);
-      font-size: 14px;
+      color: var(--ds-text-primary);
+      font-size: var(--ds-font-size-sm);
       line-height: 1.5;
       resize: none;
       box-shadow: none;
@@ -192,7 +195,7 @@ const InputArea = styled.div`
       }
 
       &::placeholder {
-        color: var(--text-tertiary);
+        color: var(--ds-text-tertiary);
       }
     }
 
@@ -328,6 +331,13 @@ interface MainContentProps {
 
 const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   const { message } = App.useApp();
+
+  // 埋点hooks
+  const chatTracking = useChatTracking();
+  const modelTracking = useModelTracking();
+  const uiTracking = useUITracking();
+  useComponentTracking('MainContent');
+
   const [messages, setMessages] = useState<StreamMessage[]>([
     {
       id: '1',
@@ -360,6 +370,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [showTabsDemo, setShowTabsDemo] = useState(false);
+  const [showDesignSystemDemo, setShowDesignSystemDemo] = useState(false);
   const [modelModalVisible, setModelModalVisible] = useState(false);
   const [isNarrowMode, setIsNarrowMode] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -430,6 +441,12 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
       timestamp: new Date().toLocaleString(),
     };
 
+    // 埋点：消息发送
+    chatTracking.trackMessageSend(
+      userMessage.content,
+      currentModelName || 'Claude 3.5 Sonnet'
+    );
+
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
 
@@ -444,9 +461,14 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
     }
   };
 
-  const handleCopyMessage = (content: string) => {
+  const handleCopyMessage = (content: string, messageId: string, messageType: 'user' | 'assistant') => {
     navigator.clipboard.writeText(content);
     message.success('已复制到剪贴板');
+
+    // 埋点：消息复制
+    chatTracking.trackMessageAction('copy', messageId, messageType, {
+      messageLength: content.length
+    });
   };
 
   const handleRegenerateMessage = async (messageId: string) => {
@@ -466,6 +488,12 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
 
     if (!userMessage) return;
 
+    // 埋点：消息重新生成
+    chatTracking.trackMessageAction('regenerate', messageId, 'assistant', {
+      retryCount: 1,
+      modelName: currentModelName || 'Claude 3.5 Sonnet'
+    });
+
     // 移除当前助手消息
     setMessages(prev => prev.filter(msg => msg.id !== messageId));
 
@@ -478,7 +506,11 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   };
 
   const handleToggleWidth = () => {
+    const newMode = !isNarrowMode ? 'narrow' : 'full';
     setIsNarrowMode(!isNarrowMode);
+
+    // 埋点：聊天宽度切换
+    uiTracking.trackChatWidthToggle(newMode, 'button');
   };
 
   // 工具栏按钮处理函数
@@ -519,9 +551,13 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   };
 
   const handleClearMessages = () => {
+    const messageCount = messages.length;
     setMessages([]);
     setInputValue('');
     message.success('已清空消息');
+
+    // 埋点：清空对话
+    chatTracking.trackConversationClear(messageCount);
   };
 
   const handleToggleExpand = () => {
@@ -541,6 +577,20 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
   const handleToggleToolbar = () => {
     setIsToolbarCollapsed(!isToolbarCollapsed);
   };
+
+  // 如果显示设计系统演示页面
+  if (showDesignSystemDemo) {
+    return (
+      <StyledContent>
+        <div style={{ padding: 'var(--ds-spacing-md)', borderBottom: '1px solid var(--ds-border-default)' }}>
+          <Button onClick={() => setShowDesignSystemDemo(false)}>
+            ← 返回主页
+          </Button>
+        </div>
+        <DesignSystemDemo />
+      </StyledContent>
+    );
+  }
 
   // 如果显示Tabs演示页面
   if (showTabsDemo) {
@@ -640,6 +690,17 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
 
         <WelcomeArea>
           欢迎使用 AI 工作台 - {messages.length === 0 ? '开始新的对话' : `当前对话中有 ${messages.length} 条消息`}
+          <Button
+            type="link"
+            onClick={() => setShowDesignSystemDemo(true)}
+            style={{
+              marginLeft: 'var(--ds-spacing-md)',
+              color: 'var(--ds-accent-primary)',
+              fontSize: 'var(--ds-font-size-sm)'
+            }}
+          >
+            🎨 查看设计系统演示
+          </Button>
         </WelcomeArea>
 
         <ChatArea $isNarrow={isNarrowMode}>
@@ -716,7 +777,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
                             alignItems: 'center',
                             gap: '4px'
                           }}
-                          onClick={() => handleCopyMessage(message.content)}
+                          onClick={() => handleCopyMessage(message.content, message.id, message.role)}
                           disabled={streamingChat.isStreaming}
                         >
                           <CopyOutlined />
@@ -755,7 +816,7 @@ const MainContent: React.FC<MainContentProps> = ({ onDrawerOpen }) => {
               <TextArea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="输入消息... (Shift+Enter 换行)"
                 autoSize={{ minRows: 1, maxRows: 6 }}
                 disabled={streamingChat.isStreaming}

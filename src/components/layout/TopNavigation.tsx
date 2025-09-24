@@ -1,5 +1,6 @@
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { removeTab, setActiveTab, toggleAppLauncher, toggleDarkMode } from '@/store/slices/uiSlice';
+import { useAppTracking, useUITracking, useComponentTracking } from '@/hooks/useTracking';
+import { removeTab, setActiveTab, toggleAppLauncher, toggleDarkMode, toggleSettingsPanel } from '@/store/slices/uiSlice';
 import {
   HomeOutlined,
   MoonOutlined,
@@ -266,14 +267,37 @@ const TopNavigation: React.FC = () => {
   const dispatch = useAppDispatch();
   const { tabs, activeTabId, darkMode } = useAppSelector(state => state.ui);
 
+  // 埋点hooks
+  const appTracking = useAppTracking();
+  const uiTracking = useUITracking();
+  useComponentTracking('TopNavigation');
+
   const handleTabChange = (key: string) => {
+    const fromTab = activeTabId;
+    const toTab = key;
+    const tabType = tabs.find(tab => tab.id === key)?.type || 'chat';
+
+    // 埋点：标签页切换
+    appTracking.trackTabSwitch(fromTab, toTab, tabType, 'click');
+
     dispatch(setActiveTab(key));
   };
 
   const handleTabEdit = (targetKey: React.MouseEvent | React.KeyboardEvent | string, action: 'add' | 'remove') => {
     if (action === 'remove') {
-      dispatch(removeTab(targetKey as string));
+      const tabId = targetKey as string;
+      const tab = tabs.find(t => t.id === tabId);
+
+      // 埋点：标签页关闭
+      if (tab) {
+        appTracking.trackTabClose(tabId, tab.type);
+      }
+
+      dispatch(removeTab(tabId));
     } else if (action === 'add') {
+      // 埋点：应用启动器打开
+      appTracking.trackAppLaunch('app_launcher', '应用启动器', false);
+
       // 切换应用启动器显示状态
       dispatch(toggleAppLauncher());
     }
@@ -326,7 +350,11 @@ const TopNavigation: React.FC = () => {
       />
 
       {/* 设置按钮 */}
-      <ActionButton icon={<SettingOutlined />} />
+      <ActionButton
+        icon={<SettingOutlined />}
+        onClick={() => dispatch(toggleSettingsPanel())}
+        title="设置"
+      />
     </StyledHeader>
   );
 };

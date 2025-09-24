@@ -1,83 +1,66 @@
 import React, { useEffect } from 'react';
 import { useAppSelector } from '@/hooks/redux';
-
-// 临时类型定义
+import { getThemeClassName } from '@/design-system';
 
 interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
+// 旧CSS变量映射（向后兼容）
+const legacyVariableMap = {
+  '--ds-bg-primary': '--bg-primary',
+  '--ds-bg-secondary': '--bg-secondary',
+  '--ds-bg-tertiary': '--bg-tertiary',
+  '--ds-text-primary': '--text-primary',
+  '--ds-text-secondary': '--text-secondary',
+  '--ds-text-tertiary': '--text-muted',
+  '--ds-border-default': '--border-color',
+  '--ds-accent-primary': '--color-primary',
+  '--ds-accent-hover': '--color-primary-hover',
+  '--ds-accent-subtle': '--color-primary-light',
+  '--ds-sidebar-width': '--sidebar-width',
+  '--ds-header-height': '--header-height',
+};
+
 const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const { theme, darkMode } = useAppSelector(state => state.ui);
 
   useEffect(() => {
-    // 移除之前的主题类
-    document.documentElement.classList.remove('theme-chatgpt', 'theme-claude', 'dark');
-
-    // 添加当前主题类
-    document.documentElement.classList.add(`theme-${theme}`);
-
-    // 添加暗色模式类
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    }
-
-    // 设置CSS变量
     const root = document.documentElement;
 
-    if (theme === 'chatgpt') {
-      if (darkMode) {
-        // ChatGPT 暗色主题
-        root.style.setProperty('--bg-primary', '#1a1a1a');
-        root.style.setProperty('--bg-secondary', '#2d2d2d');
-        root.style.setProperty('--bg-tertiary', '#404040');
-        root.style.setProperty('--text-primary', '#ffffff');
-        root.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.7)');
-        root.style.setProperty('--text-tertiary', 'rgba(255, 255, 255, 0.5)');
-        root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.1)');
-        root.style.setProperty('--accent-color', '#10a37f');
-        root.style.setProperty('--sidebar-width', '260px');
-        root.style.setProperty('--header-height', '48px');
-      } else {
-        // ChatGPT 亮色主题
-        root.style.setProperty('--bg-primary', '#ffffff');
-        root.style.setProperty('--bg-secondary', '#f7f7f8');
-        root.style.setProperty('--bg-tertiary', '#ececec');
-        root.style.setProperty('--text-primary', '#374151');
-        root.style.setProperty('--text-secondary', '#6b7280');
-        root.style.setProperty('--text-tertiary', '#9ca3af');
-        root.style.setProperty('--border-color', '#e5e5e5');
-        root.style.setProperty('--accent-color', '#10a37f');
-        root.style.setProperty('--sidebar-width', '260px');
-        root.style.setProperty('--header-height', '48px');
-      }
-    } else if (theme === 'claude') {
-      if (darkMode) {
-        // Claude 暗色主题
-        root.style.setProperty('--bg-primary', '#1a1a1a');
-        root.style.setProperty('--bg-secondary', '#2d2d2d');
-        root.style.setProperty('--bg-tertiary', '#404040');
-        root.style.setProperty('--text-primary', '#ffffff');
-        root.style.setProperty('--text-secondary', 'rgba(255, 255, 255, 0.7)');
-        root.style.setProperty('--text-tertiary', 'rgba(255, 255, 255, 0.5)');
-        root.style.setProperty('--border-color', 'rgba(255, 255, 255, 0.1)');
-        root.style.setProperty('--accent-color', '#d97706');
-        root.style.setProperty('--sidebar-width', '280px');
-        root.style.setProperty('--header-height', '48px');
-      } else {
-        // Claude 亮色主题
-        root.style.setProperty('--bg-primary', '#ffffff');
-        root.style.setProperty('--bg-secondary', '#f8f9fa');
-        root.style.setProperty('--bg-tertiary', '#e9ecef');
-        root.style.setProperty('--text-primary', '#2d3748');
-        root.style.setProperty('--text-secondary', '#4a5568');
-        root.style.setProperty('--text-tertiary', '#718096');
-        root.style.setProperty('--border-color', '#e1e5e9');
-        root.style.setProperty('--accent-color', '#d97706');
-        root.style.setProperty('--sidebar-width', '280px');
-        root.style.setProperty('--header-height', '48px');
-      }
+    // 移除所有主题类
+    root.classList.remove(
+      'theme-chatgpt-light',
+      'theme-chatgpt-dark',
+      'theme-claude-light',
+      'theme-claude-dark',
+      'theme-chatgpt', // 旧格式
+      'theme-claude',   // 旧格式
+      'dark'
+    );
+
+    // 获取新的主题类名
+    const themeClassName = getThemeClassName(theme, darkMode ? 'dark' : 'light');
+
+    // 应用新主题类
+    root.classList.add(themeClassName);
+
+    // 添加暗色模式类（兼容性）
+    if (darkMode) {
+      root.classList.add('dark');
     }
+
+    // 同步新CSS变量到旧CSS变量（向后兼容）
+    requestAnimationFrame(() => {
+      const computedStyle = getComputedStyle(root);
+
+      Object.entries(legacyVariableMap).forEach(([newVar, oldVar]) => {
+        const value = computedStyle.getPropertyValue(newVar);
+        if (value) {
+          root.style.setProperty(oldVar, value);
+        }
+      });
+    });
   }, [theme, darkMode]);
 
   return <>{children}</>;

@@ -16,6 +16,7 @@ interface UIState {
   currentModelName: string;
   showAppLauncher: boolean;
   showKnowledgeBase: boolean;
+  showSettingsPanel: boolean;
 }
 
 interface TabItem {
@@ -42,6 +43,7 @@ const initialState: UIState & {
   currentModelName: 'Claude 3.5 Sonnet',
   showAppLauncher: false,
   showKnowledgeBase: false,
+  showSettingsPanel: false,
   tabs: [
     {
       id: 'home',
@@ -124,6 +126,12 @@ const uiSlice = createSlice({
     toggleKnowledgeBase: (state) => {
       state.showKnowledgeBase = !state.showKnowledgeBase;
     },
+    setShowSettingsPanel: (state, action: PayloadAction<boolean>) => {
+      state.showSettingsPanel = action.payload;
+    },
+    toggleSettingsPanel: (state) => {
+      state.showSettingsPanel = !state.showSettingsPanel;
+    },
   },
 });
 
@@ -144,6 +152,8 @@ export const {
   toggleAppLauncher,
   setShowKnowledgeBase,
   toggleKnowledgeBase,
+  setShowSettingsPanel,
+  toggleSettingsPanel,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

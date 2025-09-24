@@ -1,0 +1,21 @@
+{
+  "generated": "2025-09-22T07:07:49.636Z",
+  "themes": {
+    "chatgpt-light": {
+      "name": "ChatGPT Light",
+      "className": "theme-chatgpt-light"
+    },
+    "chatgpt-dark": {
+      "name": "ChatGPT Dark",
+      "className": "theme-chatgpt-dark"
+    },
+    "claude-light": {
+      "name": "Claude Light",
+      "className": "theme-claude-light"
+    },
+    "claude-dark": {
+      "name": "Claude Dark",
+      "className": "theme-claude-dark"
+    }
+  }
+}

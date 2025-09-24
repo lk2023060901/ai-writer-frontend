@@ -1,4 +1,5 @@
 import { useAppDispatch } from '@/hooks/redux';
+import { useAppTracking, useComponentTracking } from '@/hooks/useTracking';
 import { addTab, setActiveTab, setShowAppLauncher } from '@/store/slices/uiSlice';
 import {
   AppstoreOutlined,
@@ -104,6 +105,8 @@ interface AppData {
 
 const AppLauncher: React.FC = () => {
   const dispatch = useAppDispatch();
+  const appTracking = useAppTracking();
+  useComponentTracking('AppLauncher');
 
   const apps: AppData[] = [
     {
@@ -157,7 +160,8 @@ const AppLauncher: React.FC = () => {
   ];
 
   const handleAppClick = (app: AppData) => {
-    console.log('点击应用:', app.name);
+    // 埋点：应用点击
+    appTracking.trackAppLaunch(app.id, app.name, true);
 
     // 映射app.id到标签页类型
     const typeMapping: Record<string, 'knowledge' | 'assistant' | 'chat' | 'settings'> = {

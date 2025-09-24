@@ -246,6 +246,12 @@ const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
   ];
 
   useEffect(() => {
+    // 添加空值检查
+    if (!providers) {
+      setFilteredProviders([]);
+      return;
+    }
+
     let filtered = providers;
 
     // 先按标签过滤
@@ -313,11 +319,14 @@ const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
       closable={false}
       maskClosable={true}
       destroyOnHidden
+      centered
       styles={{
         body: {
           padding: 0,
           background: 'var(--bg-primary)',
-          marginTop: '-20px'
+        },
+        mask: {
+          backdropFilter: 'blur(4px)',
         }
       }}
     >
@@ -349,7 +358,7 @@ const ModelSelectorModal: React.FC<ModelSelectorModalProps> = ({
           <LoadingContainer>
             <Spin size="large" />
           </LoadingContainer>
-        ) : filteredProviders.length === 0 ? (
+        ) : !filteredProviders || filteredProviders.length === 0 ? (
           <LoadingContainer>
             <Empty description="未找到匹配的模型" />
           </LoadingContainer>

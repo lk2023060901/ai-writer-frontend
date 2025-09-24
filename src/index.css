@@ -1,3 +1,6 @@
+/* 导入生成的主题样式 */
+@import './design-system/generated/themes.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,8 +14,65 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* 确保header-height始终有值 */
+  /* 确保header-height始终有值（向后兼容） */
   --header-height: 48px;
+}
+
+/* 默认应用Claude Light主题 */
+:root:not([class*="theme-"]) {
+  --ds-bg-primary: #ffffff;
+  --ds-bg-secondary: #f8f9fa;
+  --ds-bg-tertiary: #e9ecef;
+  --ds-bg-elevated: #ffffff;
+  --ds-text-primary: #2d3748;
+  --ds-text-secondary: #4a5568;
+  --ds-text-tertiary: #718096;
+  --ds-text-inverse: #ffffff;
+  --ds-text-disabled: #a0aec0;
+  --ds-border-default: #e1e5e9;
+  --ds-border-subtle: #f7fafc;
+  --ds-border-strong: #cbd5e0;
+  --ds-border-focus: #d97706;
+  --ds-accent-primary: #d97706;
+  --ds-accent-secondary: #b45309;
+  --ds-accent-hover: #c05621;
+  --ds-accent-pressed: #92400e;
+  --ds-accent-subtle: rgba(217, 119, 6, 0.1);
+  --ds-status-success: #059669;
+  --ds-status-warning: #d97706;
+  --ds-status-error: #dc2626;
+  --ds-status-info: #2563eb;
+  --ds-spacing-xs: 4px;
+  --ds-spacing-sm: 8px;
+  --ds-spacing-md: 16px;
+  --ds-spacing-lg: 24px;
+  --ds-spacing-xl: 32px;
+  --ds-spacing-2xl: 48px;
+  --ds-spacing-3xl: 64px;
+  --ds-spacing-4xl: 96px;
+  --ds-font-size-xs: 12px;
+  --ds-font-size-sm: 14px;
+  --ds-font-size-base: 16px;
+  --ds-font-size-lg: 18px;
+  --ds-font-size-xl: 20px;
+  --ds-font-size-2xl: 24px;
+  --ds-font-size-3xl: 30px;
+  --ds-font-size-4xl: 36px;
+  --ds-radius-none: 0;
+  --ds-radius-sm: 4px;
+  --ds-radius-md: 6px;
+  --ds-radius-lg: 8px;
+  --ds-radius-xl: 12px;
+  --ds-radius-full: 9999px;
+  --ds-shadow-none: none;
+  --ds-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --ds-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --ds-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --ds-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --ds-sidebar-width: 280px;
+  --ds-sidebar-collapsed-width: 60px;
+  --ds-header-height: 48px;
+  --ds-content-max-width: 1200px;
 }
 
 * {

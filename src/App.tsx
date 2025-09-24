@@ -1,7 +1,9 @@
 import ThemeProvider from '@/components/common/ThemeProvider';
 import AppLayout from '@/components/layout/AppLayout';
+import TrackingDebugPanel from '@/components/debug/TrackingDebugPanel';
 import { useAppSelector } from '@/hooks/redux';
 import { store } from '@/store';
+import '@/utils/analytics'; // 初始化分析服务
 import { App as AntApp, ConfigProvider, theme } from 'antd';
 import React from 'react';
 import { Provider } from 'react-redux';
@@ -53,6 +55,7 @@ function App() {
         <AppConfigProvider>
           <ThemeProvider>
             <AppLayout />
+            <TrackingDebugPanel />
           </ThemeProvider>
         </AppConfigProvider>
       </BrowserRouter>

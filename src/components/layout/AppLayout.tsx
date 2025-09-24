@@ -3,9 +3,12 @@ import { Layout } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import AppLauncher from '../pages/AppLauncher';
-import MainContent from './MainContent';
-import SidePanel from './SidePanel';
+// import MainContent from './MainContent';
+import { MainContentRefactored as MainContent } from '../main-content';
+// import SidePanel from './SidePanel';
+import { SidePanelRefactored as SidePanel } from './sidebar';
 import TopNavigation from './TopNavigation';
+import SettingsPanel from '../settings/SettingsPanel';
 
 const StyledLayout = styled(Layout)`
   height: 100vh;
@@ -54,7 +57,7 @@ const StyledDrawer = styled.div<{ $visible: boolean }>`
 `;
 
 const AppLayout: React.FC = () => {
-  const { theme, sidebarCollapsed, showAppLauncher, tabs, activeTabId } = useAppSelector(state => state.ui);
+  const { theme, sidebarCollapsed, showAppLauncher, showSettingsPanel, tabs, activeTabId } = useAppSelector(state => state.ui);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -84,8 +87,13 @@ const AppLayout: React.FC = () => {
       {/* 顶部导航 - 在所有主题下都显示 */}
       <TopNavigation />
 
-      {/* 条件渲染：应用启动器或正常布局 */}
-      {showAppLauncher ? (
+      {/* 条件渲染：设置面板、应用启动器或正常布局 */}
+      {showSettingsPanel ? (
+        /* 设置面板 - 在ContentLayout内显示 */
+        <ContentLayout className={`theme-${theme}`}>
+          <SettingsPanel />
+        </ContentLayout>
+      ) : showAppLauncher ? (
         /* 应用启动器页面 - 全屏显示 */
         <ContentLayout className={`theme-${theme}`}>
           <AppLauncher />
