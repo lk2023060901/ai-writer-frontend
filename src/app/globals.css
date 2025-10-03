@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Custom Colors */
+  --color-primary: #1173d4;
+  --color-primary-90: rgb(17 115 212 / 0.9);
+  --color-primary-20: rgb(17 115 212 / 0.2);
+  --color-primary-10: rgb(17 115 212 / 0.1);
+
+  --color-background-light: #f6f7f8;
+  --color-background-light-60: rgb(246 247 248 / 0.6);
+  --color-background-light-10: rgb(246 247 248 / 0.1);
+  --color-background-light-5: rgb(246 247 248 / 0.05);
+
+  --color-background-dark: #101922;
+  --color-background-dark-80: rgb(16 25 34 / 0.8);
+  --color-background-dark-60: rgb(16 25 34 / 0.6);
+  --color-background-dark-20: rgb(16 25 34 / 0.2);
+  --color-background-dark-10: rgb(16 25 34 / 0.1);
+  --color-background-dark-5: rgb(16 25 34 / 0.05);
+
+  --color-card-light: #ffffff;
+  --color-card-dark: #18222c;
+
+  /* Backdrop colors for navbar */
+  --color-background-dark\/80: rgba(16, 25, 34, 0.8);
+
+  /* Font Family */
+  --font-family-display: Inter, sans-serif;
+
+  /* Border Radius */
+  --border-radius: 0.5rem;
+  --border-radius-lg: 0.75rem;
+  --border-radius-xl: 1rem;
+  --border-radius-full: 9999px;
+}

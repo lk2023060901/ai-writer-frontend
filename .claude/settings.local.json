@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Volumes/work/cherry-studio/原型/html/**)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(for file in /Volumes/work/coding/website/ai-writer-frontend/src/app/{agents,providers,knowledge-bases,dashboard}/page.tsx)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
