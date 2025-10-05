@@ -14,12 +14,11 @@ import {
   SyncOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import AppLayout from '@/components/AppLayout';
+import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
 import { useRouter } from 'next/navigation';
 
 const { Dragger } = Upload;
-const { TabPane } = Tabs;
 
 interface KnowledgeBase {
   id: string;
@@ -134,7 +133,8 @@ export default function KnowledgeBasesPage() {
   });
 
   return (
-    <AppLayout>
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      <Navbar activeTabKey="knowledge" />
       <div className="grid h-full grid-cols-12">
         {/* Knowledge Bases Sidebar */}
         <div className="col-span-3 overflow-y-auto border-r border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark">
@@ -168,16 +168,9 @@ export default function KnowledgeBasesPage() {
         {/* Documents Area */}
         <div className="col-span-9 flex flex-col overflow-y-auto bg-white p-6 dark:bg-background-dark/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button
-                type="text"
-                icon={<SettingOutlined />}
-                className="flex h-9 w-9 items-center justify-center"
-              />
-              <p className="text-sm text-background-dark/60 dark:text-background-light/60">
-                Embedding Model: text-embedding-ada-002
-              </p>
-            </div>
+            <p className="text-sm text-background-dark/60 dark:text-background-light/60">
+              Embedding Model: text-embedding-ada-002
+            </p>
             <Button
               type="text"
               icon={<SearchOutlined />}
@@ -187,35 +180,37 @@ export default function KnowledgeBasesPage() {
 
           <hr className="my-4 border-background-dark/10 dark:border-background-light/10" />
 
-          <Tabs activeKey={activeTab} onChange={setActiveTab}>
-            <TabPane tab="All" key="all" />
-            <TabPane tab="Text" key="text" />
-            <TabPane tab="PDF" key="pdf" />
-            <TabPane tab="URL" key="url" />
-          </Tabs>
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { key: 'all', label: 'All' },
+              { key: 'text', label: 'Text' },
+              { key: 'pdf', label: 'PDF' },
+              { key: 'url', label: 'URL' },
+            ]}
+            className="mb-0"
+          />
 
-          <div className="mt-6">
+          <div className="mt-4">
             <Dragger
               beforeUpload={handleUpload}
               showUploadList={false}
-              className="rounded-xl border-2 border-dashed"
+              className="rounded-lg"
             >
               <p className="ant-upload-drag-icon">
-                <InboxOutlined className="text-5xl text-background-dark/40 dark:text-background-light/40" />
+                <InboxOutlined className="text-4xl text-primary/60" />
               </p>
-              <p className="ant-upload-text text-base font-semibold text-background-dark dark:text-background-light">
-                Drag and drop files here
+              <p className="ant-upload-text text-base font-medium">
+                Click or drag file to this area
               </p>
               <p className="ant-upload-hint text-sm text-background-dark/60 dark:text-background-light/60">
-                or click to browse
+                Support for single file upload
               </p>
-              <Button type="primary" className="mt-4">
-                Browse Files
-              </Button>
             </Dragger>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 space-y-4">
             {filteredDocuments.map((doc) => (
               <div
                 key={doc.id}
@@ -290,6 +285,6 @@ export default function KnowledgeBasesPage() {
           )}
         </div>
       </div>
-    </AppLayout>
+    </div>
   );
 }

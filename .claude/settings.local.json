@@ -7,7 +7,10 @@
       "Bash(npm install:*)",
       "Bash(for file in /Volumes/work/coding/website/ai-writer-frontend/src/app/{agents,providers,knowledge-bases,dashboard}/page.tsx)",
       "Bash(do if [ -f \"$file\" ])",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git log:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

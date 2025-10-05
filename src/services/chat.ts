@@ -4,10 +4,13 @@ export interface Agent {
   id: string;
   name: string;
   emoji: string;
-  prompt: string;
-  knowledge_base_ids?: string[];
   tags?: string[];
-  enabled: boolean;
+  knowledge_base_ids?: string[];
+  is_official?: boolean; // Deprecated, use owner_id to determine
+  is_enabled: boolean;
+  owner_id?: string; // Empty means official, non-empty means user-defined
+  prompt: string;
+  type: string;
   created_at: string;
   updated_at: string;
 }
@@ -51,17 +54,47 @@ export interface MessagesListResponse {
   offset: number;
 }
 
+export interface AgentsResponse {
+  items: Agent[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+export interface ImportResponse {
+  success_count: number;
+  fail_count: number;
+  errors?: string[];
+  agents: Agent[];
+}
+
 export const chatService = {
   // Agent APIs
-  async getAgents(params?: { tags?: string; keyword?: string }) {
-    return apiClient.get<Agent[]>('/api/v1/agents', params);
+  async getAgents(params?: { page?: number; page_size?: number; tags?: string; keyword?: string }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+    if (params?.tags) queryParams.append('tags', params.tags);
+    if (params?.keyword) queryParams.append('keyword', params.keyword);
+
+    const endpoint = `/api/v1/agents${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiClient.get<AgentsResponse>(endpoint);
   },
 
   async getAgent(id: string) {
     return apiClient.get<Agent>(`/api/v1/agents/${id}`);
   },
 
-  async createAgent(data: Partial<Agent>) {
+  async createAgent(data: {
+    name: string;
+    emoji?: string;
+    prompt: string;
+    tags?: string[];
+    knowledge_base_ids?: string[];
+  }) {
     return apiClient.post<Agent>('/api/v1/agents', data);
   },
 
@@ -69,8 +102,64 @@ export const chatService = {
     return apiClient.put<Agent>(`/api/v1/agents/${id}`, data);
   },
 
+  async enableAgent(id: string) {
+    return apiClient.patch(`/api/v1/agents/${id}/enable`);
+  },
+
+  async disableAgent(id: string) {
+    return apiClient.patch(`/api/v1/agents/${id}/disable`);
+  },
+
   async deleteAgent(id: string) {
     return apiClient.delete(`/api/v1/agents/${id}`);
+  },
+
+  async importAgentsFromFile(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    // Use the same base URL as the apiClient
+    const baseUrl = typeof window !== 'undefined'
+      ? (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080')
+      : 'http://localhost:8080';
+    const apiUrl = `${baseUrl}/api/v1/agents/import/file`;
+
+    console.log('Attempting import to:', apiUrl);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const contentType = response.headers.get('content-type');
+
+    if (!response.ok) {
+      // Check if response is JSON or HTML
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to import agents from file');
+      } else {
+        // Backend API might not have this endpoint yet, return a helpful message
+        console.warn('Import API endpoint not available, falling back to individual creation');
+        throw new Error('Bulk import endpoint not available');
+      }
+    }
+
+    // Make sure response is JSON before parsing
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Server returned invalid response format');
+    }
+
+    const result = await response.json();
+    return result.data as ImportResponse;
+  },
+
+  async importAgentsFromUrl(url: string) {
+    return apiClient.post<ImportResponse>('/api/v1/agents/import/url', { url });
   },
 
   // Topic APIs

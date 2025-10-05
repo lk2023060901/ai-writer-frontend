@@ -84,7 +84,7 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background-light p-4 dark:bg-background-dark">
       <div className="w-full max-w-md">
         <div className="mb-6 flex flex-col items-center">
-          <Navbar showDarkModeToggle={false} />
+          <Navbar />
           <h1 className="mt-4 text-2xl font-bold text-background-dark dark:text-background-light">
             Create your account
           </h1>

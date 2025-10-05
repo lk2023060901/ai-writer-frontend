@@ -12,7 +12,7 @@ import {
   DeleteOutlined,
   EditOutlined,
 } from '@ant-design/icons';
-import AppLayout from '@/components/AppLayout';
+import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
 import { providerService, AIProviderConfig } from '@/services/provider';
 import { useRouter } from 'next/navigation';
@@ -234,7 +234,8 @@ export default function ProvidersPage() {
   };
 
   return (
-    <AppLayout>
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      <Navbar activeTabKey="providers" />
       <div className="grid h-full grid-cols-12">
         {/* Providers List */}
         <div className="col-span-3 flex flex-col border-r border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/30">
@@ -496,6 +497,6 @@ export default function ProvidersPage() {
           </div>
         </Form>
       </Modal>
-    </AppLayout>
+    </div>
   );
 }

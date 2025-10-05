@@ -37,3 +37,109 @@
   --border-radius-xl: 1rem;
   --border-radius-full: 9999px;
 }
+
+/* Apps tabs custom styles */
+.apps-tabs {
+  margin-bottom: 0;
+}
+
+.apps-tabs .ant-tabs-nav {
+  margin-bottom: 0 !important;
+  border: 0;
+  align-items: center;
+}
+
+.apps-tabs .ant-tabs-nav::before {
+  border: 0;
+}
+
+.apps-tabs .ant-tabs-tab {
+  padding: 4px 12px;
+  background: transparent;
+  border: 0;
+  margin: 0 !important;
+  display: flex;
+  align-items: center;
+}
+
+.apps-tabs .ant-tabs-tab-remove {
+  margin-left: 4px;
+}
+
+/* Remove dots from upload drag area */
+.ant-upload.ant-upload-drag {
+  border: 2px dashed #d9d9d9 !important;
+  background: #fafafa;
+}
+
+.ant-upload.ant-upload-drag:hover {
+  border-color: #1890ff !important;
+}
+
+.ant-upload-drag .ant-upload {
+  padding: 16px 0;
+}
+
+/* Hide ALL menu dots and decorations in upload area */
+.ant-upload-drag::before,
+.ant-upload-drag::after,
+.ant-upload-drag .ant-upload-drag-icon::before,
+.ant-upload-drag .ant-upload-drag-icon::after,
+.ant-upload-list-item-actions,
+.ant-upload-list-item-action,
+.ant-upload-list-item .anticon-delete,
+.ant-upload-list-item .anticon-download,
+.ant-upload.ant-upload-drag .ant-upload-btn::before,
+.ant-upload.ant-upload-drag .ant-upload-btn::after,
+.ant-upload-drag-container::before,
+.ant-upload-drag-container::after,
+.ant-upload-wrapper .ant-upload-drag::before,
+.ant-upload-drag > span::before,
+.ant-upload-drag > span::after,
+.ant-upload-drag > .ant-upload::before,
+.ant-upload-drag > .ant-upload::after,
+span.ant-upload-drag > *::before {
+  display: none !important;
+  content: none !important;
+  background: none !important;
+  border: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* Remove Tabs default bottom margin */
+.ant-tabs.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+.ant-tabs.mb-0 .ant-tabs-nav {
+  margin-bottom: 0 !important;
+}
+
+/* Completely remove the three-dot icon for custom upload */
+.upload-no-icon * {
+  position: relative !important;
+}
+
+.upload-no-icon *::before,
+.upload-no-icon *::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Add spacing between upload area and file list */
+.ant-upload-drag + div {
+  margin-top: 24px !important;
+}
+
+/* Dark mode upload area */
+.dark .ant-upload.ant-upload-drag {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: #434343 !important;
+}
+
+.dark .ant-upload.ant-upload-drag:hover {
+  border-color: #1890ff !important;
+}
