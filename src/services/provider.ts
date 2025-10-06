@@ -4,15 +4,15 @@ export interface AIProviderConfig {
   id: string;
   provider_type: string;
   provider_name: string;
+  is_official: boolean;
+  owner_id: string;
   api_key: string;
   api_base_url?: string;
   embedding_model?: string;
   embedding_dimensions?: number;
-  supports_chat: boolean;
-  supports_embedding: boolean;
-  enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  is_enabled: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface CreateProviderRequest {
@@ -26,7 +26,39 @@ export interface CreateProviderRequest {
   supports_embedding?: boolean;
 }
 
+export interface AIModel {
+  id: string;
+  model_name: string;
+  display_name?: string;
+  max_tokens?: number | null;
+  is_enabled: boolean;
+  verification_status: string;
+  capabilities: string[]; // ["chat", "embedding", "rerank"]
+  supports_stream: boolean;
+  supports_vision: boolean;
+  supports_function_calling: boolean;
+  supports_reasoning: boolean;
+  supports_web_search: boolean;
+  embedding_dimensions?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIProviderWithModels {
+  id: string;
+  provider_type: string;
+  provider_name: string;
+  api_base_url: string;
+  is_enabled: boolean;
+  models: AIModel[];
+}
+
 export const providerService = {
+  async getProvidersWithModels() {
+    return apiClient.get<AIProviderWithModels[]>('/api/v1/ai-providers/with-models');
+  },
+
+
   async getProviders() {
     return apiClient.get<AIProviderConfig[]>('/api/v1/ai-providers');
   },
@@ -47,9 +79,9 @@ export const providerService = {
     return apiClient.delete(`/api/v1/ai-providers/${id}`);
   },
 
-  async toggleProvider(id: string, enabled: boolean) {
+  async toggleProvider(id: string, is_enabled: boolean) {
     return apiClient.patch<AIProviderConfig>(`/api/v1/ai-providers/${id}`, {
-      enabled,
+      is_enabled,
     });
   },
 };

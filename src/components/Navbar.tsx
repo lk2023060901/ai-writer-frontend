@@ -195,6 +195,7 @@ export default function Navbar({ activeTabKey = 'home', onTabChange }: NavbarPro
           <Button
             type="text"
             icon={<SettingOutlined />}
+            onClick={() => router.push('/providers')}
             className="flex h-9 w-9 items-center justify-center text-background-dark/60 dark:text-background-light/60"
           />
           <Dropdown

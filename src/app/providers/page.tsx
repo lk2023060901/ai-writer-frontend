@@ -17,7 +17,6 @@ import { authService } from '@/services/auth';
 import { providerService, AIProviderConfig } from '@/services/provider';
 import { useRouter } from 'next/navigation';
 
-const { Panel } = Collapse;
 
 interface Provider {
   id: string;
@@ -126,24 +125,27 @@ export default function ProvidersPage() {
   }, [selectedProvider, providers]);
 
   const sortedProviders = [...providers].sort((a, b) => {
-    if (a.enabled !== b.enabled) {
-      return a.enabled ? -1 : 1;
+    if (a.is_enabled !== b.is_enabled) {
+      return a.is_enabled ? -1 : 1;
     }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    if (a.created_at && b.created_at) {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }
+    return 0;
   });
 
   const filteredProviders = sortedProviders.filter((provider) =>
     provider.provider_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleToggleProvider = async (id: string, enabled: boolean) => {
+  const handleToggleProvider = async (id: string, is_enabled: boolean) => {
     try {
-      const response = await providerService.toggleProvider(id, !enabled);
+      const response = await providerService.toggleProvider(id, !is_enabled);
       if (response.error) {
         message.error(response.error);
         return;
       }
-      message.success(`Provider ${!enabled ? 'enabled' : 'disabled'} successfully`);
+      message.success(`Provider ${!is_enabled ? 'enabled' : 'disabled'} successfully`);
       loadProviders();
     } catch (error: any) {
       message.error(error.message || 'Failed to toggle provider');
@@ -234,11 +236,24 @@ export default function ProvidersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+    <div className="flex h-screen flex-col bg-background-light dark:bg-background-dark">
       <Navbar activeTabKey="providers" />
-      <div className="grid h-full grid-cols-12">
-        {/* Providers List */}
-        <div className="col-span-3 flex flex-col border-r border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/30">
+      <main className="flex flex-1 overflow-hidden">
+        <div className="grid flex-1 grid-cols-12 overflow-hidden">
+          {/* Left Sidebar Navigation */}
+          <aside className="col-span-2 overflow-y-auto border-r border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark/50">
+            <div className="rounded-lg bg-card-light p-2 dark:bg-card-dark">
+              <nav className="space-y-1">
+                <a className="flex cursor-pointer items-center gap-3 rounded-md bg-primary/10 px-3 py-2 text-sm font-semibold text-primary dark:bg-primary/20" href="/providers">
+                  <span className="text-xl">🔌</span>
+                  <span>Providers</span>
+                </a>
+              </nav>
+            </div>
+          </aside>
+
+          {/* Providers List */}
+          <div className="col-span-3 flex flex-col border-r border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/30">
           <div className="p-4">
             <Input
               prefix={<SearchOutlined className="text-background-dark/50 dark:text-background-light/50" />}
@@ -267,8 +282,8 @@ export default function ProvidersPage() {
                   </span>
                 </div>
                 <Switch
-                  checked={provider.enabled}
-                  onChange={() => handleToggleProvider(provider.id, provider.enabled)}
+                  checked={provider.is_enabled}
+                  onChange={() => handleToggleProvider(provider.id, provider.is_enabled)}
                   onClick={(e) => e.stopPropagation()}
                   size="small"
                 />
@@ -289,7 +304,7 @@ export default function ProvidersPage() {
         </div>
 
         {/* Provider Details */}
-        <div className="col-span-9 overflow-y-auto bg-card-light p-6 dark:bg-card-dark">
+        <main className="col-span-7 flex flex-col overflow-y-auto bg-card-light p-6 dark:bg-card-dark">
           {selectedProviderData && (
             <>
               <div className="flex items-center justify-between border-b border-background-dark/10 pb-4 dark:border-background-light/10">
@@ -310,8 +325,8 @@ export default function ProvidersPage() {
                     Enable
                   </span>
                   <Switch
-                    checked={selectedProviderData.enabled}
-                    onChange={() => handleToggleProvider(selectedProviderData.id, selectedProviderData.enabled)}
+                    checked={selectedProviderData.is_enabled}
+                    onChange={() => handleToggleProvider(selectedProviderData.id, selectedProviderData.is_enabled)}
                   />
                 </div>
               </div>
@@ -415,33 +430,33 @@ export default function ProvidersPage() {
               activeKey={activeKeys}
               onChange={(keys) => setActiveKeys(keys as string[])}
               className="space-y-2 bg-transparent"
-            >
-              {Object.entries(mockModels).map(([category, models]) => (
-                <Panel header={category} key={category} className="rounded-lg border border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/50">
-                  {models.map((model) => (
-                    <div key={model.id} className="flex items-center border-t border-background-dark/10 p-3 dark:border-background-light/10">
-                      <div className="flex flex-1 items-center gap-3">
-                        <span className="text-primary">🧠</span>
-                        <span className="text-sm font-medium text-background-dark dark:text-background-light">
-                          {model.name}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {model.services.map((service) => (
-                            <span key={service} title={serviceIcons[service]?.title}>
-                              {serviceIcons[service]?.icon}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button type="text" size="small" icon={<SettingOutlined />} />
-                        <Button type="text" size="small" icon={<DeleteOutlined />} danger />
+              items={Object.entries(mockModels).map(([category, models]) => ({
+                key: category,
+                label: category,
+                className: "rounded-lg border border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/50",
+                children: models.map((model) => (
+                  <div key={model.id} className="flex items-center border-t border-background-dark/10 p-3 dark:border-background-light/10">
+                    <div className="flex flex-1 items-center gap-3">
+                      <span className="text-primary">🧠</span>
+                      <span className="text-sm font-medium text-background-dark dark:text-background-light">
+                        {model.name}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {model.services.map((service) => (
+                          <span key={service} title={serviceIcons[service]?.title}>
+                            {serviceIcons[service]?.icon}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </Panel>
-              ))}
-            </Collapse>
+                    <div className="flex items-center gap-2">
+                      <Button type="text" size="small" icon={<SettingOutlined />} />
+                      <Button type="text" size="small" icon={<DeleteOutlined />} danger />
+                    </div>
+                  </div>
+                ))
+              }))}
+            />
 
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button icon={<EditOutlined />}>Manage</Button>
@@ -450,8 +465,9 @@ export default function ProvidersPage() {
               </Button>
             </div>
           </div>
+        </main>
         </div>
-      </div>
+      </main>
 
       {/* Create Provider Modal */}
       <Modal
