@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { App } from 'antd';
 import { chatService, Message as APIMessage } from '@/services/chat';
 
@@ -33,6 +33,7 @@ const GeminiIcon = () => (
 export default function ChatMessages({ topicId, quickQuestionsVisible = true, fontSize = 14, streamingMessage, refreshKey }: ChatMessagesProps) {
   const { message } = App.useApp();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [messages, setMessages] = useState<APIMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -45,15 +46,48 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
     'Who won the last world cup?',
   ];
 
+  // Debounced scroll to bottom function
+  const scrollToBottom = useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }, 100);
+  }, []);
+
   useEffect(() => {
     if (topicId) {
       loadMessages();
     }
   }, [topicId, refreshKey]);
 
+  // Auto scroll when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
+
+  // Auto scroll when streaming message updates
+  useEffect(() => {
+    if (streamingMessage?.content) {
+      scrollToBottom();
+    }
+  }, [streamingMessage?.content, scrollToBottom]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const loadMessages = async () => {
     setLoading(true);
@@ -75,68 +109,90 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
   };
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-1 pb-6">
-      {/* Suggestions */}
+    <div className="h-full flex flex-col chat-messages-container">
+      {/* Suggestions - Fixed height section */}
       {quickQuestionsVisible && (
-        <div className="rounded-lg border border-background-dark/10 bg-background-light px-4 py-3 dark:border-background-light/10 dark:bg-background-dark">
-          <div className="flex max-h-20 flex-wrap gap-2 overflow-y-hidden [mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              className="rounded-full border border-background-dark/10 px-3 py-1 text-sm text-background-dark/80 transition-colors hover:bg-primary/10 hover:text-primary dark:border-background-light/10 dark:text-background-light/80 dark:hover:bg-primary/20"
-            >
-              {suggestion}
-            </button>
-          ))}
-        </div>
+        <div className="flex-shrink-0 px-6 pt-1 pb-3 lg:px-6 md:px-4 sm:px-3">
+          <div className="rounded-lg border border-background-dark/10 bg-background-light px-4 py-3 dark:border-background-light/10 dark:bg-background-dark">
+            <div className="flex max-h-20 flex-wrap gap-2 overflow-y-hidden [mask-image:linear-gradient(to_bottom,black_50%,transparent_100%)]">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={index}
+                  className="rounded-full border border-background-dark/10 px-3 py-1 text-sm text-background-dark/80 transition-colors hover:bg-primary/10 hover:text-primary dark:border-background-light/10 dark:text-background-light/80 dark:hover:bg-primary/20"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 space-y-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-sm text-background-dark-60 dark:text-background-light-60">
-              Loading messages...
+      {/* Messages - Scrollable section */}
+      <div className="flex-1 overflow-y-auto px-6 pb-6 chat-messages-scroll lg:px-6 md:px-4 sm:px-3">
+        <div className="pt-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-sm text-background-dark-60 dark:text-background-light-60">
+                Loading messages...
+              </div>
             </div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
-              chat
-            </span>
-            <p className="text-sm text-background-dark-60 dark:text-background-light-60">
-              No messages yet
-            </p>
-            <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
-              Start a conversation below
-            </p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            // Extract text content from content_blocks
-            const textContent = msg.content_blocks
-              .filter(block => block.type === 'text')
-              .map(block => block.text)
-              .join('\n');
+          ) : messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
+                chat
+              </span>
+              <p className="text-sm text-background-dark-60 dark:text-background-light-60">
+                No messages yet
+              </p>
+              <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
+                Start a conversation below
+              </p>
+            </div>
+          ) : (
+            messages.map((msg, index) => {
+              // Extract text content from content_blocks
+              const textContent = msg.content_blocks
+                .filter(block => block.type === 'text')
+                .map(block => block.text)
+                .join('\n');
 
-            const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+              const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+              });
 
-            if (msg.role === 'assistant') {
-              return (
-                <div key={msg.id} className="flex items-start gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
-                    <GeminiIcon />
+              if (msg.role === 'assistant') {
+                return (
+                  <div key={msg.id} className={`flex items-start gap-4 ${index > 0 ? 'pt-6' : ''}`}>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+                      <GeminiIcon />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-background-dark dark:text-background-light">
+                        Assistant
+                      </p>
+                      <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
+                        <p className="whitespace-pre-wrap break-words text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                          {textContent}
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
+                        {timestamp}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
+                );
+              }
+
+              return (
+                <div key={msg.id} className={`flex items-start justify-end gap-4 ${index > 0 ? 'pt-6' : ''}`}>
+                  <div className="flex-1 text-right min-w-0">
                     <p className="font-semibold text-background-dark dark:text-background-light">
-                      Assistant
+                      You
                     </p>
-                    <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
-                      <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                    <div className="mt-2 rounded-lg bg-primary/10 p-3 dark:bg-primary/20">
+                      <p className="whitespace-pre-wrap break-words text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
                         {textContent}
                       </p>
                     </div>
@@ -144,56 +200,38 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
                       {timestamp}
                     </p>
                   </div>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white font-semibold">
+                    U
+                  </div>
                 </div>
               );
-            }
+            })
+          )}
 
-            return (
-              <div key={msg.id} className="flex items-start justify-end gap-4">
-                <div className="flex-1 text-right">
-                  <p className="font-semibold text-background-dark dark:text-background-light">
-                    You
-                  </p>
-                  <div className="mt-2 rounded-lg bg-primary/10 p-3 dark:bg-primary/20">
-                    <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
-                      {textContent}
-                    </p>
-                  </div>
-                  <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
-                    {timestamp}
-                  </p>
-                </div>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white font-semibold">
-                  U
-                </div>
+          {/* Streaming Message */}
+          {streamingMessage && streamingMessage.content && (
+            <div className={`flex items-start gap-4 ${messages.length > 0 ? 'pt-6' : ''}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+                <GeminiIcon />
               </div>
-            );
-          })
-        )}
-
-        {/* Streaming Message */}
-        {streamingMessage && streamingMessage.content && (
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
-              <GeminiIcon />
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-background-dark dark:text-background-light">
-                Assistant
-              </p>
-              <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
-                <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
-                  {streamingMessage.content}
-                  {streamingMessage.isStreaming && (
-                    <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-primary" />
-                  )}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-background-dark dark:text-background-light">
+                  Assistant
                 </p>
+                <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
+                  <p className="whitespace-pre-wrap break-words text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                    {streamingMessage.content}
+                    {streamingMessage.isStreaming && (
+                      <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-primary" />
+                    )}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
     </div>
   );

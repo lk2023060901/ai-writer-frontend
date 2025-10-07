@@ -143,3 +143,107 @@ span.ant-upload-drag > *::before {
 .dark .ant-upload.ant-upload-drag:hover {
   border-color: #1890ff !important;
 }
+
+/* Chat Layout Styles */
+.chat-messages-container {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+.chat-input-container {
+  flex-shrink: 0;
+  min-height: 80px;
+}
+
+/* Custom Scrollbar Styles */
+.chat-messages-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .chat-messages-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Firefox scrollbar */
+.chat-messages-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.dark .chat-messages-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Chat Input Transitions */
+.chat-input-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Attachment Preview Animation */
+.attachment-preview-enter {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.attachment-preview-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.attachment-preview-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.attachment-preview-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Responsive Layout Adjustments */
+@media (max-width: 768px) {
+  .chat-messages-scroll {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .chat-input-container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-messages-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+}

@@ -71,10 +71,10 @@ export default function ChatPage() {
       <Navbar activeTabKey="home" />
 
       {/* Main Content */}
-      <main className="grid h-full flex-1 grid-cols-12 overflow-hidden">
+      <main className="flex h-full flex-1 overflow-hidden">
         {/* Sidebar */}
         {sidebarVisible && (
-          <aside className="col-span-3 border-r border-background-dark/10 dark:border-background-light/10">
+          <aside className="w-80 flex-shrink-0 border-r border-background-dark/10 dark:border-background-light/10 lg:w-80 md:w-72 sm:w-64">
             <ChatSidebar
               quickQuestionsVisible={quickQuestionsVisible}
               onQuickQuestionsToggle={setQuickQuestionsVisible}
@@ -94,31 +94,31 @@ export default function ChatPage() {
         )}
 
         {/* Chat Area */}
-        <main className={`flex h-full flex-col ${sidebarVisible ? 'col-span-9' : 'col-span-12'}`}>
-          {/* Chat Controls */}
-          <div className="flex items-center justify-between px-4 pt-2 pb-1">
-            <div className="flex items-center gap-2">
+        <main className="flex h-full flex-1 flex-col min-w-0">
+          {/* Chat Controls - Fixed Height */}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 pt-2 pb-1 border-b border-background-dark/10 dark:border-background-light/10 lg:px-4 md:px-3 sm:px-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <Button
                 type="text"
                 icon={<MenuOutlined />}
                 onClick={() => setSidebarVisible(!sidebarVisible)}
-                className="flex h-8 w-8 items-center justify-center text-background-dark/60 dark:text-background-light/60"
+                className="flex h-8 w-8 items-center justify-center text-background-dark/60 dark:text-background-light/60 flex-shrink-0"
               />
               <Button
                 onClick={() => setModelSelectorVisible(true)}
-                className="flex items-center gap-2 rounded-md bg-background-dark/5 px-3 py-1.5 text-sm font-medium dark:bg-background-light/5"
+                className="flex items-center gap-2 rounded-md bg-background-dark/5 px-3 py-1.5 text-sm font-medium dark:bg-background-light/5 min-w-0 max-w-xs lg:max-w-sm"
               >
-                <span className="h-2 w-2 rounded-full bg-green-500" />
-                <span className="text-background-dark dark:text-background-light">
+                <span className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
+                <span className="text-background-dark dark:text-background-light truncate">
                   {selectedModel ? selectedModel.modelName : '选择模型'}
                 </span>
-                <span className="mx-1 h-4 w-px bg-background-dark/20 dark:bg-background-light/20" />
-                <span className="text-background-dark/60 dark:text-background-light/60">
+                <span className="mx-1 h-4 w-px bg-background-dark/20 dark:bg-background-light/20 flex-shrink-0" />
+                <span className="text-background-dark/60 dark:text-background-light/60 truncate">
                   {selectedModel ? selectedModel.providerName : '未选择'}
                 </span>
               </Button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Button
                 type="text"
                 icon={<HistoryOutlined />}
@@ -127,8 +127,8 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Messages Container - Scrollable Area */}
+          <div className="flex-1 overflow-hidden">
             {selectedTopic ? (
               <ChatMessages
                 topicId={selectedTopic}
@@ -138,7 +138,7 @@ export default function ChatPage() {
                 refreshKey={messagesRefreshKey}
               />
             ) : isNewConversation ? (
-              <div className="flex h-full flex-col items-center justify-center text-center">
+              <div className="flex h-full flex-col items-center justify-center text-center px-6">
                 <span className="material-symbols-outlined mb-4 text-6xl text-primary">
                   chat
                 </span>
@@ -150,7 +150,7 @@ export default function ChatPage() {
                 </p>
               </div>
             ) : (
-              <div className="flex h-full flex-col items-center justify-center text-center">
+              <div className="flex h-full flex-col items-center justify-center text-center px-6">
                 <span className="material-symbols-outlined mb-4 text-6xl text-background-dark-30 dark:text-background-light-30">
                   chat_bubble_outline
                 </span>
@@ -164,9 +164,9 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Input */}
+          {/* Input Area - Fixed Height */}
           {(selectedTopic || isNewConversation) && (
-            <div className="relative shrink-0 border-t border-background-dark/10 px-4 py-4 dark:border-background-light/10">
+            <div className="flex-shrink-0 border-t border-background-dark/10 px-4 py-4 dark:border-background-light/10 lg:px-4 md:px-3 sm:px-2 chat-input-container">
               <ChatInput
                 topicId={selectedTopic}
                 assistantId={pendingAssistantId}
