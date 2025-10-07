@@ -1,24 +1,54 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { chatService, Agent } from '@/services/chat';
+import { topicService, Topic } from '@/services/topic';
+import { favoritesService, AssistantFavoriteWithDetails } from '@/services/favorites';
+import { App } from 'antd';
 
 interface ChatSidebarProps {
   quickQuestionsVisible?: boolean;
   onQuickQuestionsToggle?: (visible: boolean) => void;
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
+  onAgentChange?: (agentId: string | null) => void;
+  onTopicChange?: (topicId: string | null) => void;
+  onNewConversation?: (agentId: string) => void;
+  onTopicModelChange?: (model: {
+    providerId: string;
+    modelId: string;
+    modelName: string;
+    providerName: string;
+  } | null) => void;
 }
 
 export default function ChatSidebar({
   quickQuestionsVisible = true,
   onQuickQuestionsToggle,
   fontSize: externalFontSize,
-  onFontSizeChange
+  onFontSizeChange,
+  onAgentChange,
+  onTopicChange,
+  onNewConversation,
+  onTopicModelChange
 }: ChatSidebarProps) {
+  const { message, modal } = App.useApp();
   const [activeTab, setActiveTab] = useState('assistant');
-  const [selectedAgent, setSelectedAgent] = useState('agent2');
-  const [selectedTopic, setSelectedTopic] = useState('topic2');
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<string | null>(null);
+  const [favoriteAgents, setFavoriteAgents] = useState<AssistantFavoriteWithDetails[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
+  const [editingTopicName, setEditingTopicName] = useState('');
+
+  // Agent selection modal state
+  const [showAgentModal, setShowAgentModal] = useState(false);
+  const [allAgents, setAllAgents] = useState<Agent[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loadingAllAgents, setLoadingAllAgents] = useState(false);
 
   // Settings state
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -35,41 +65,203 @@ export default function ChatSidebar({
 
   const fontSize = externalFontSize ?? internalFontSize;
 
-  const agents = [
-    {
-      id: 'agent1',
-      name: 'Sophia Carter',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDsGQkMevrV1xfrnxYhXpkT-wmLepqVNHg-cdU77AXXnTrry7xVATWIPqpisGBfTfWnEMcNdNPaxlvVkL2pz3MoYD0IXdV54MAjTsQt116QDbFOXUbMPovazMRdg9hEQfq-eY_v-_D03HTkGZKY7EoVv6IS4bqmx0x_o9iWPvvzN1PlJoNuLsqe9IQ36Q47WbcapcudX5FMpxYzEFWgLiPuN1iLjTAZdVE3B3JfTpTbAqeK29O9_Uy9fTBQhX-_27_naxKg1UrkCyU',
-      count: 3,
-    },
-    {
-      id: 'agent2',
-      name: 'Olivia Bennett',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDxRDCyUuNv3Wm-x08cB6y5i3ST3LSMQ3NKclHao7qDuZ9cOccfLtWRi9WP7h7nCZqCKmiiVhRd8hIn-bxpSXgeEM1GnyHm_2jgXC6Q0St_ER_27qcZfp2ahmXJ7U9qVAt9nYjhvhE0-xfchZHctIyIHVZpllL0ooGAmhe9d4xVxMSA27_EAPXfi0Xd4E5lcfBmA3HCZCuJto-FaCU_gg-KvLEfxcSDh-Qc2SqKMSg6m0508Z4Zudy0o90QnnCnEVMKVEg60lYFA4U',
-      count: 1,
-    },
-    {
-      id: 'agent3',
-      name: 'Ethan Hayes',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDxRDCyUuNv3Wm-x08cB6y5i3ST3LSMQ3NKclHao7qDuZ9cOccfLtWRi9WP7h7nCZqCKmiiVhRd8hIn-bxpSXgeEM1GnyHm_2jgXC6Q0St_ER_27qcZfp2ahmXJ7U9qVAt9nYjhvhE0-xfchZHctIyIHVZpllL0ooGAmhe9d4xVxMSA27_EAPXfi0Xd4E5lcfBmA3HCZCuJto-FaCU_gg-KvLEfxcSDh-Qc2SqKMSg6m0508Z4Zudy0o90QnnCnEVMKVEg60lYFA4U',
-      count: 5,
-    },
-  ];
+  // Load data when switching tabs
+  useEffect(() => {
+    if (activeTab === 'assistant') {
+      loadFavorites();
+    } else if (activeTab === 'topics') {
+      loadTopics();
+    }
+  }, [activeTab]);
 
-  const topicsList = [
-    {
-      id: 'topic1',
-      title: 'Brainstorming session for the new marketing campaign',
-    },
-    {
-      id: 'topic2',
-      title: 'Q3 Financial Report Analysis',
-    },
-    {
-      id: 'topic3',
-      title: 'Customer feedback synthesis for product improvement',
-    },
-  ];
+  const loadFavorites = async () => {
+    setLoadingFavorites(true);
+    try {
+      const response = await favoritesService.getFavorites();
+
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        // Reverse the array to show newest first
+        const reversedData = [...response.data].reverse();
+        setFavoriteAgents(reversedData);
+      } else if (response.code === 401) {
+        // Unauthorized - user not logged in
+        console.warn('User not authenticated, favorites unavailable');
+        setFavoriteAgents([]);
+      } else if (response.code === 404) {
+        // API not implemented yet
+        console.warn('Favorites API not implemented yet');
+        setFavoriteAgents([]);
+      } else {
+        // Other errors - use empty list
+        console.warn('Favorites API error:', response);
+        setFavoriteAgents([]);
+      }
+    } catch (error) {
+      console.error('Failed to load favorites:', error);
+      setFavoriteAgents([]);
+    } finally {
+      setLoadingFavorites(false);
+    }
+  };
+
+  const loadTopics = async () => {
+    setLoadingTopics(true);
+    try {
+      const response = await topicService.getAllTopics();
+
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        const topicsData = Array.isArray(response.data) ? response.data : [];
+        // Sort by created_at descending (newest first)
+        const sortedTopics = topicsData.sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        setTopics(sortedTopics);
+      } else {
+        setTopics([]);
+      }
+    } catch (error) {
+      console.error('Failed to load topics:', error);
+      setTopics([]);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  const loadAllAgents = async () => {
+    setLoadingAllAgents(true);
+    try {
+      const response = await chatService.getAgents({
+        page: 1,
+        page_size: 100,
+      });
+
+      if (response.data && response.data.items) {
+        setAllAgents(response.data.items);
+      }
+    } catch (error) {
+      console.error('Failed to load all agents:', error);
+      message.error('Failed to load agents');
+    } finally {
+      setLoadingAllAgents(false);
+    }
+  };
+
+  const handleOpenAgentModal = () => {
+    setShowAgentModal(true);
+    setSearchQuery('');
+    loadAllAgents();
+  };
+
+  const handleCloseAgentModal = () => {
+    setShowAgentModal(false);
+    setSearchQuery('');
+  };
+
+  const handleSelectAgent = async (agent: Agent) => {
+    try {
+      // Add agent to favorites via API
+      await favoritesService.addFavorite({ assistant_id: agent.id });
+
+      // Reload favorites list
+      await loadFavorites();
+
+      // Select the agent
+      setSelectedAgent(agent.id);
+      onAgentChange?.(agent.id);
+      setSelectedTopic(null);
+      onTopicChange?.(null);
+
+      // Don't close modal - let user continue adding more assistants
+      message.success('Assistant added to favorites');
+    } catch (error: any) {
+      if (error.message?.includes('already in favorites')) {
+        message.warning('Assistant is already in favorites');
+        // Still select it but don't close modal
+        setSelectedAgent(agent.id);
+        onAgentChange?.(agent.id);
+      } else {
+        message.error('Failed to add assistant to favorites');
+      }
+    }
+  };
+
+  const handleRemoveFavorite = async (assistantId: string) => {
+    try {
+      await favoritesService.removeFavorite(assistantId);
+
+      // Reload favorites list
+      await loadFavorites();
+
+      // Unselect if currently selected
+      if (selectedAgent === assistantId) {
+        setSelectedAgent(null);
+        onAgentChange?.(null);
+        setSelectedTopic(null);
+        onTopicChange?.(null);
+      }
+
+      message.success('Assistant removed from favorites');
+    } catch (error: any) {
+      message.error('Failed to remove assistant from favorites');
+    }
+  };
+
+  // Filter agents based on search query
+  const filteredAgents = allAgents.filter(agent =>
+    agent.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleRenameTopic = async (topicId: string, newName: string) => {
+    if (!selectedAgent) return;
+
+    try {
+      const response = await topicService.updateTopic(selectedAgent, topicId, {
+        name: newName,
+      });
+
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        message.success('Topic renamed successfully');
+        loadTopics();
+        setEditingTopicId(null);
+        setContextMenu(null);
+      } else {
+        message.error(response.message || 'Failed to rename topic');
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Failed to rename topic');
+    }
+  };
+
+  const handleDeleteTopic = async (topicId: string, assistantId: string) => {
+    modal.confirm({
+      title: 'Delete Topic',
+      content: 'Are you sure you want to delete this topic? This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          const response = await topicService.deleteTopic(assistantId, topicId);
+
+          if ((response.code === 200 || response.code === 0)) {
+            message.success('Topic deleted successfully');
+            if (selectedTopic === topicId) {
+              setSelectedTopic(null);
+            }
+
+            // Also delete the saved model info from localStorage
+            const topicModelKey = `topic_model_${topicId}`;
+            localStorage.removeItem(topicModelKey);
+
+            loadTopics();
+          } else {
+            message.error(response.message || 'Failed to delete topic');
+          }
+        } catch (error: any) {
+          message.error(error.message || 'Failed to delete topic');
+        }
+      },
+    });
+  };
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -79,6 +271,20 @@ export default function ChatSidebar({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [contextMenu]);
+
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (showAgentModal && !target.closest('.agent-modal-content')) {
+        handleCloseAgentModal();
+      }
+    };
+    if (showAgentModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showAgentModal]);
 
   return (
     <>
@@ -120,49 +326,127 @@ export default function ChatSidebar({
 
       {/* Assistant Tab */}
       {activeTab === 'assistant' && (
-        <div className="space-y-2 p-4">
-          {agents.map((agent) => (
-            <div
-              key={agent.id}
-              onClick={() => setSelectedAgent(agent.id)}
-              className={`flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-primary-10 dark:hover:bg-primary-20 ${
-                selectedAgent === agent.id
-                  ? 'bg-primary-10 dark:bg-primary-20'
-                  : ''
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="h-10 w-10 shrink-0 rounded-full bg-cover bg-center bg-no-repeat"
-                  style={{ backgroundImage: `url("${agent.avatar}")` }}
-                />
-                <p className="font-semibold text-background-dark dark:text-background-light">
-                  {agent.name}
-                </p>
-              </div>
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background-dark-10 text-xs font-semibold text-background-dark dark:bg-background-light-10 dark:text-background-light">
-                {agent.count}
+        <div className="space-y-4 p-4">
+          <button
+            onClick={handleOpenAgentModal}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-90"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            <span>添加助手</span>
+          </button>
+          {loadingFavorites ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-sm text-background-dark-60 dark:text-background-light-60">
+                Loading favorites...
               </div>
             </div>
-          ))}
+          ) : favoriteAgents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
+                star_border
+              </span>
+              <p className="text-sm text-background-dark-60 dark:text-background-light-60">
+                No favorite assistants
+              </p>
+              <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
+                Click "添加助手" to add your favorites
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {favoriteAgents.map((favorite) => (
+                <div
+                  key={favorite.id}
+                  onClick={() => {
+                    // Switch to Topics tab and start new conversation
+                    setSelectedAgent(favorite.assistant_id);
+                    onAgentChange?.(favorite.assistant_id);
+                    setActiveTab('topics');
+                    setSelectedTopic(null);
+                    onTopicChange?.(null);
+                    onNewConversation?.(favorite.assistant_id);
+                  }}
+                  className={`group relative flex cursor-pointer items-center justify-between rounded-lg p-2 hover:bg-primary-10 dark:hover:bg-primary-20 ${
+                    selectedAgent === favorite.assistant_id
+                      ? 'bg-primary-10 dark:bg-primary-20'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-10 text-2xl dark:bg-primary-20">
+                      {favorite.assistant_emoji || '🤖'}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="truncate font-semibold text-background-dark dark:text-background-light">
+                        {favorite.assistant_name}
+                      </p>
+                      {favorite.assistant_tags && Array.isArray(favorite.assistant_tags) && favorite.assistant_tags.length > 0 && (
+                        <p className="truncate text-xs text-background-dark-60 dark:text-background-light-60">
+                          {favorite.assistant_tags.slice(0, 2).join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFavorite(favorite.assistant_id);
+                    }}
+                    className="hidden h-7 w-7 items-center justify-center rounded-md text-background-dark-60 transition-colors hover:bg-red-500/10 hover:text-red-500 group-hover:flex"
+                  >
+                    <span className="material-symbols-outlined text-lg">close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Topics Tab - Historical Sessions */}
       {activeTab === 'topics' && (
         <div className="space-y-4 p-4">
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-90">
-            <span className="material-symbols-outlined text-base">add</span>
-            <span>New Topic</span>
-          </button>
-          <div className="space-y-1">
-            {topicsList.map((topic, index) => (
+          {loadingTopics ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-sm text-background-dark-60 dark:text-background-light-60">
+                Loading topics...
+              </div>
+            </div>
+          ) : topics.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
+                chat_bubble
+              </span>
+              <p className="text-sm text-background-dark-60 dark:text-background-light-60">
+                No topics yet
+              </p>
+              <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
+                Create a new topic to start chatting
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {topics.map((topic, index) => (
               <div
                 key={topic.id}
-                onClick={(e) => {
+                onClick={() => {
                   // Don't change selection if clicking on menu
                   if (!contextMenu) {
                     setSelectedTopic(topic.id);
+                    onTopicChange?.(topic.id);
+
+                    // Try to load model info from localStorage
+                    const topicModelKey = `topic_model_${topic.id}`;
+                    const savedModelStr = localStorage.getItem(topicModelKey);
+                    if (savedModelStr) {
+                      try {
+                        const savedModel = JSON.parse(savedModelStr);
+                        onTopicModelChange?.(savedModel);
+                        console.log('✅ [ChatSidebar] Loaded model for topic:', topic.id, savedModel);
+                      } catch (error) {
+                        console.error('Failed to parse saved model:', error);
+                      }
+                    }
                   }
                 }}
                 className={`group relative cursor-pointer rounded-lg p-2 ${
@@ -181,9 +465,36 @@ export default function ChatSidebar({
                   position: 'relative',
                 }}
               >
-                <p className="truncate pr-8 text-sm font-medium text-background-dark dark:text-background-light">
-                  {topic.title}
-                </p>
+                {editingTopicId === topic.id ? (
+                  <input
+                    type="text"
+                    value={editingTopicName}
+                    onChange={(e) => setEditingTopicName(e.target.value)}
+                    onBlur={() => {
+                      if (editingTopicName.trim()) {
+                        handleRenameTopic(topic.id, editingTopicName.trim());
+                      } else {
+                        setEditingTopicId(null);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (editingTopicName.trim()) {
+                          handleRenameTopic(topic.id, editingTopicName.trim());
+                        }
+                      } else if (e.key === 'Escape') {
+                        setEditingTopicId(null);
+                      }
+                    }}
+                    autoFocus
+                    className="w-full rounded border border-primary bg-background-light px-2 py-1 text-sm font-medium text-background-dark outline-none dark:bg-background-dark dark:text-background-light"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <p className="truncate pr-8 text-sm font-medium text-background-dark dark:text-background-light">
+                    {topic.name}
+                  </p>
+                )}
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <button
                     onClick={(e) => {
@@ -206,8 +517,9 @@ export default function ChatSidebar({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          // Handle rename
-                          console.log('Rename:', topic.id);
+                          setEditingTopicId(topic.id);
+                          setEditingTopicName(topic.name);
+                          setContextMenu(null);
                         }}
                         className="block rounded-md px-3 py-1.5 text-left text-sm text-background-dark hover:bg-background-dark-5 dark:text-background-light dark:hover:bg-background-light-5"
                       >
@@ -219,8 +531,7 @@ export default function ChatSidebar({
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          // Handle delete
-                          console.log('Delete:', topic.id);
+                          handleDeleteTopic(topic.id, topic.assistant_id);
                         }}
                         className="block rounded-md px-3 py-1.5 text-left text-sm text-red-500 hover:bg-red-500/10"
                       >
@@ -231,7 +542,8 @@ export default function ChatSidebar({
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -544,6 +856,85 @@ export default function ChatSidebar({
               >
                 Confirm
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Agent Selection Modal */}
+      {showAgentModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+          <div
+            className="agent-modal-content relative flex h-[600px] w-full max-w-lg flex-col rounded-lg bg-background-light shadow-xl dark:bg-background-dark"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={handleCloseAgentModal}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-background-dark-60 transition-colors hover:bg-background-dark-10 dark:text-background-light-60 dark:hover:bg-background-light-10"
+            >
+              <span className="material-symbols-outlined text-xl">close</span>
+            </button>
+
+            {/* Search input */}
+            <div className="p-6 pb-4">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-xl text-background-dark-40 dark:text-background-light-40">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="搜索助手"
+                  className="w-full rounded-lg border-0 bg-background-dark-5 py-2.5 pl-10 pr-4 text-sm text-background-dark outline-none ring-1 ring-transparent transition-all focus:bg-background-light focus:ring-primary dark:bg-background-light-5 dark:text-background-light dark:focus:bg-background-dark"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Agent list */}
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {loadingAllAgents ? (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-sm text-background-dark-60 dark:text-background-light-60">
+                    Loading agents...
+                  </div>
+                </div>
+              ) : filteredAgents.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
+                    search_off
+                  </span>
+                  <p className="text-sm text-background-dark-60 dark:text-background-light-60">
+                    No agents found
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredAgents.map((agent) => (
+                    <div
+                      key={agent.id}
+                      onClick={() => handleSelectAgent(agent)}
+                      className="flex cursor-pointer items-center gap-3 rounded-lg p-3 transition-colors hover:bg-primary-10 dark:hover:bg-primary-20"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-10 text-2xl dark:bg-primary-20">
+                        {agent.emoji || '🤖'}
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="truncate font-semibold text-background-dark dark:text-background-light">
+                          {agent.name}
+                        </p>
+                        {agent.tags && agent.tags.length > 0 && (
+                          <p className="truncate text-xs text-background-dark-60 dark:text-background-light-60">
+                            {agent.tags.slice(0, 2).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

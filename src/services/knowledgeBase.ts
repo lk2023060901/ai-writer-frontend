@@ -165,16 +165,16 @@ export const knowledgeBaseService = {
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('text/event-stream')) {
         console.warn('⚠️ Response is not SSE, content-type:', contentType);
-        // 如果不是 SSE，按普通 JSON 处理
+        console.warn('⚠️ Expected SSE but got different content type. This might indicate a backend configuration issue.');
+        
+        // 尝试按JSON处理，但这通常表示配置问题
         const data = await response.json();
-        console.log('📦 JSON Response:', data);
+        console.log('📦 Fallback JSON Response:', data);
 
-        // 立即触发 document_created 事件
+        // 简单的事件触发，不模拟复杂流程
         if (onProgress && data.data) {
           onProgress({
             type: 'document_created',
-            document_id: data.data.id,
-            file_type: data.data.file_type,
             ...data.data
           });
         }
@@ -217,7 +217,14 @@ export const knowledgeBaseService = {
 
             try {
               const event = JSON.parse(data);
-              console.log('🔔 SSE Event parsed:', event);
+              console.log('🔔 SSE Event parsed:', {
+                type: event.type,
+                status: event.status,
+                document_id: event.document_id || event.id,
+                file_size: event.file_size,
+                created_at: event.created_at,
+                full_event: event
+              });
 
               if (onProgress) {
                 onProgress(event);

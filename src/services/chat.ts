@@ -208,4 +208,90 @@ export const chatService = {
   async deleteAllMessages(topicId: string) {
     return apiClient.delete(`/api/v1/topics/${topicId}/messages`);
   },
+
+  // SSE Streaming Chat
+  async streamChat(params: {
+    topicId: string;
+    message: string;
+    providers: Array<{ provider: string; model: string }>;
+    onToken?: (data: { provider: string; content: string; index: number }) => void;
+    onStart?: (data: { provider: string; model: string }) => void;
+    onDone?: (data: { provider: string; token_count?: number; finish_reason?: string }) => void;
+    onAllDone?: () => void;
+    onError?: (error: Error) => void;
+  }) {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+    const baseUrl = typeof window !== 'undefined'
+      ? (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080')
+      : 'http://localhost:8080';
+
+    const response = await fetch(`${baseUrl}/api/v1/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        topic_id: params.topicId,
+        message: params.message,
+        providers: params.providers,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('Response body is null');
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('event:')) {
+            // Event type line, skip it as we determine type from data structure
+            continue;
+          }
+
+          if (line.startsWith('data:')) {
+            const dataStr = line.substring(5).trim();
+            if (!dataStr) continue;
+
+            try {
+              const data = JSON.parse(dataStr);
+
+              // Determine event type from the previous event line
+              // Since we're processing line by line, we need to track the event
+              // For simplicity, we'll detect based on data structure
+              if (data.provider && data.model && !data.content) {
+                params.onStart?.(data);
+              } else if (data.provider && data.content !== undefined) {
+                params.onToken?.(data);
+              } else if (data.provider && data.finish_reason) {
+                params.onDone?.(data);
+              } else if (data.message === 'All providers completed') {
+                params.onAllDone?.();
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e, dataStr);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      params.onError?.(error as Error);
+    } finally {
+      reader.releaseLock();
+    }
+  },
 };

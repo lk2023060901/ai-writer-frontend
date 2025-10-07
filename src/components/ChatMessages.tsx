@@ -1,41 +1,19 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { Avatar } from 'antd';
+import React, { useEffect, useRef, useState } from 'react';
+import { App } from 'antd';
+import { chatService, Message as APIMessage } from '@/services/chat';
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  avatar?: string;
-  name?: string;
+interface ChatMessagesProps {
+  topicId: string;
+  quickQuestionsVisible?: boolean;
+  fontSize?: number;
+  streamingMessage?: {
+    content: string;
+    isStreaming: boolean;
+  } | null;
+  refreshKey?: number;
 }
-
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    content: 'Hello! How can I help you today?',
-    timestamp: '10:00 AM',
-    name: 'Gemini 1.5 Pro Assistant',
-  },
-  {
-    id: '2',
-    role: 'user',
-    content: 'Can you tell me a joke?',
-    timestamp: '10:01 AM',
-    name: 'John Doe',
-    avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD8GKP6ra-5KwJvQTEiKL-Yhdu0bPWeRbgMJ3wP3baXJveeUjW2JKF1zKclSU4FMPCKVczlG_9RxfLx50BkotDBJFgpz0owV0cVXKJgiVxU06al6SJ2XkGoGCgQQBKmdlgTS0oY54uzfupOkc7MNnnS54kPjSKANt4mh1BIMYqyGOJ_k6PIv8XK03Ls4QVg2T_aZqv7ssY9oVHTHvPrfbdYFD_j0s0E6-8S25184CdtA0JCGqLADPDEIGqT7DFZFNPNMOTqBSXD2yo',
-  },
-  {
-    id: '3',
-    role: 'assistant',
-    content: "Why don't scientists trust atoms? Because they make up everything!",
-    timestamp: '10:02 AM',
-    name: 'Gemini 1.5 Pro Assistant',
-  },
-];
 
 const GeminiIcon = () => (
   <svg className="h-6 w-6 text-green-500" fill="currentColor" viewBox="0 0 24 24">
@@ -52,13 +30,11 @@ const GeminiIcon = () => (
   </svg>
 );
 
-interface ChatMessagesProps {
-  quickQuestionsVisible?: boolean;
-  fontSize?: number;
-}
-
-export default function ChatMessages({ quickQuestionsVisible = true, fontSize = 14 }: ChatMessagesProps) {
+export default function ChatMessages({ topicId, quickQuestionsVisible = true, fontSize = 14, streamingMessage, refreshKey }: ChatMessagesProps) {
+  const { message } = App.useApp();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<APIMessage[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const suggestions = [
     'What is the weather like today?',
@@ -70,8 +46,33 @@ export default function ChatMessages({ quickQuestionsVisible = true, fontSize = 
   ];
 
   useEffect(() => {
+    if (topicId) {
+      loadMessages();
+    }
+  }, [topicId, refreshKey]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  }, [messages]);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    try {
+      const response = await chatService.getMessages(topicId, {
+        limit: 100,
+        offset: 0,
+      });
+
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        setMessages(response.data.messages || []);
+      }
+    } catch (error: any) {
+      console.error('Failed to load messages:', error);
+      message.error('Failed to load messages');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-1 pb-6">
@@ -93,49 +94,105 @@ export default function ChatMessages({ quickQuestionsVisible = true, fontSize = 
 
       {/* Messages */}
       <div className="flex-1 space-y-6">
-        {mockMessages.map((message) => {
-          if (message.role === 'assistant') {
-            return (
-              <div key={message.id} className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
-                  <GeminiIcon />
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-sm text-background-dark-60 dark:text-background-light-60">
+              Loading messages...
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <span className="material-symbols-outlined mb-2 text-4xl text-background-dark-30 dark:text-background-light-30">
+              chat
+            </span>
+            <p className="text-sm text-background-dark-60 dark:text-background-light-60">
+              No messages yet
+            </p>
+            <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
+              Start a conversation below
+            </p>
+          </div>
+        ) : (
+          messages.map((msg) => {
+            // Extract text content from content_blocks
+            const textContent = msg.content_blocks
+              .filter(block => block.type === 'text')
+              .map(block => block.text)
+              .join('\n');
+
+            const timestamp = new Date(msg.created_at).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            if (msg.role === 'assistant') {
+              return (
+                <div key={msg.id} className="flex items-start gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+                    <GeminiIcon />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-background-dark dark:text-background-light">
+                      Assistant
+                    </p>
+                    <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
+                      <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                        {textContent}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
+                      {timestamp}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
+              );
+            }
+
+            return (
+              <div key={msg.id} className="flex items-start justify-end gap-4">
+                <div className="flex-1 text-right">
                   <p className="font-semibold text-background-dark dark:text-background-light">
-                    {message.name}
+                    You
                   </p>
-                  <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
-                    <p className="text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
-                      {message.content}
+                  <div className="mt-2 rounded-lg bg-primary/10 p-3 dark:bg-primary/20">
+                    <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                      {textContent}
                     </p>
                   </div>
                   <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
-                    {message.timestamp}
+                    {timestamp}
                   </p>
+                </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-white font-semibold">
+                  U
                 </div>
               </div>
             );
-          }
+          })
+        )}
 
-          return (
-            <div key={message.id} className="flex items-start justify-end gap-4">
-              <div className="flex-1 text-right">
-                <p className="font-semibold text-background-dark dark:text-background-light">
-                  {message.name}
-                </p>
-                <div className="mt-2 rounded-lg bg-primary/10 p-3 dark:bg-primary/20">
-                  <p className="text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
-                    {message.content}
-                  </p>
-                </div>
-                <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
-                  {message.timestamp}
+        {/* Streaming Message */}
+        {streamingMessage && streamingMessage.content && (
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+              <GeminiIcon />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-background-dark dark:text-background-light">
+                Assistant
+              </p>
+              <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
+                <p className="whitespace-pre-wrap text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
+                  {streamingMessage.content}
+                  {streamingMessage.isStreaming && (
+                    <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-primary" />
+                  )}
                 </p>
               </div>
-              <Avatar size={40} src={message.avatar} />
             </div>
-          );
-        })}
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
     </div>

@@ -80,7 +80,7 @@ export const providerService = {
   },
 
   async toggleProvider(id: string, is_enabled: boolean) {
-    return apiClient.patch<AIProviderConfig>(`/api/v1/ai-providers/${id}`, {
+    return apiClient.patch<AIProviderConfig>(`/api/v1/ai-providers/${id}/status`, {
       is_enabled,
     });
   },

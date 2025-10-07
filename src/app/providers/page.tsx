@@ -283,8 +283,10 @@ export default function ProvidersPage() {
                 </div>
                 <Switch
                   checked={provider.is_enabled}
-                  onChange={() => handleToggleProvider(provider.id, provider.is_enabled)}
-                  onClick={(e) => e.stopPropagation()}
+                  onChange={(checked, e) => {
+                    e?.stopPropagation();
+                    handleToggleProvider(provider.id, provider.is_enabled);
+                  }}
                   size="small"
                 />
               </div>

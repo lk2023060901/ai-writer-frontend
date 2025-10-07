@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Button, Dropdown, Input, Tag, Form, App, Tabs, Upload, Modal } from 'antd';
+import { Card, Button, Dropdown, Input, Tag, Form, App, Tabs, Upload, Modal, Select } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -19,6 +19,7 @@ import {
 import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
 import { chatService, Agent, AgentsResponse, ImportResponse } from '@/services/chat';
+import { knowledgeBaseService, KnowledgeBase } from '@/services/knowledgeBase';
 import { useRouter } from 'next/navigation';
 
 const { TabPane } = Tabs;
@@ -44,6 +45,8 @@ export default function AgentsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [pageSize] = useState(20);
   const [showUserAgents, setShowUserAgents] = useState(true); // Toggle between user and official agents
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
+  const [loadingKnowledgeBases, setLoadingKnowledgeBases] = useState(false);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -53,6 +56,15 @@ export default function AgentsPage() {
       loadAgents();
     }
   }, [router]);
+
+  // Load knowledge bases when modal opens
+  useEffect(() => {
+    console.log('🎯 Modal state changed:', { isModalOpen, currentKbCount: knowledgeBases.length });
+    if (isModalOpen) {
+      console.log('🚀 Modal opened, triggering knowledge base load...');
+      loadKnowledgeBases();
+    }
+  }, [isModalOpen]);
 
   const loadAgents = async (page: number = 1) => {
     setLoading(true);
@@ -75,6 +87,35 @@ export default function AgentsPage() {
       message.error(error.message || 'Failed to load agents');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadKnowledgeBases = async () => {
+    setLoadingKnowledgeBases(true);
+    try {
+      console.log('🔍 Loading knowledge bases...');
+      const response = await knowledgeBaseService.getKnowledgeBases({
+        page: 1,
+        page_size: 100, // Load all knowledge bases
+      });
+
+      console.log('📦 Knowledge bases response:', response);
+
+      // Check response code (0 or 200 indicates success)
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        console.log('✅ Loaded knowledge bases:', response.data.items);
+        setKnowledgeBases(response.data.items);
+      } else {
+        console.warn('⚠️ Unexpected response format:', response);
+        if (response.message) {
+          message.warning(response.message);
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to load knowledge bases:', error);
+      message.error('Failed to load knowledge bases');
+    } finally {
+      setLoadingKnowledgeBases(false);
     }
   };
 
@@ -647,6 +688,74 @@ export default function AgentsPage() {
                 value = value.replace(/\\'/g, "'");     // 单引号
                 value = value.replace(/\\\\/g, '\\');   // 反斜杠（最后处理）
                 form.setFieldsValue({ prompt: value });
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="Knowledge Bases"
+            name="knowledge_base_ids"
+            help={`Select knowledge bases to provide context for this agent ${knowledgeBases.length > 0 ? `(${knowledgeBases.length} available)` : ''}`}
+          >
+            <Select
+              mode="multiple"
+              placeholder={loadingKnowledgeBases ? "Loading..." : `Select knowledge bases (${knowledgeBases.length} available)`}
+              loading={loadingKnowledgeBases}
+              allowClear
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={knowledgeBases.map(kb => ({
+                value: kb.id,
+                label: kb.name,
+                disabled: false,
+              }))}
+              maxTagCount="responsive"
+              style={{
+                minHeight: '32px',
+              }}
+              maxTagTextLength={20}
+              tagRender={(props) => {
+                const { label, closable, onClose } = props;
+                return (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '0 8px',
+                      margin: '2px 4px 2px 0',
+                      backgroundColor: '#f0f0f0',
+                      border: '1px solid #d9d9d9',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      lineHeight: '22px',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{label}</span>
+                    {closable && (
+                      <span
+                        onClick={onClose}
+                        style={{
+                          marginLeft: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          color: '#00000073',
+                        }}
+                      >
+                        ×
+                      </span>
+                    )}
+                  </span>
+                );
+              }}
+              onOpenChange={(open) => {
+                console.log('📋 Dropdown open change:', open);
+                console.log('📦 Current knowledge bases:', knowledgeBases);
+                console.log('🔄 Loading state:', loadingKnowledgeBases);
               }}
             />
           </Form.Item>

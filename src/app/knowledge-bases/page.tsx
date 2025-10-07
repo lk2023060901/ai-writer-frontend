@@ -14,10 +14,11 @@ import {
   SyncOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
 import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
-import { knowledgeBaseService, KnowledgeBase as KBType, Document as APIDocument } from '@/services/knowledgeBase';
+import { knowledgeBaseService, KnowledgeBase as KBType, Document as APIDocument, DocumentProvider } from '@/services/knowledgeBase';
 import { providerService, AIProviderWithModels } from '@/services/provider';
 import { useRouter } from 'next/navigation';
 
@@ -34,8 +35,11 @@ export default function KnowledgeBasesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [modalTabKey, setModalTabKey] = useState('general');
   const [embeddingModel, setEmbeddingModel] = useState<string>();
+  const [embeddingDimension, setEmbeddingDimension] = useState<number>();
   const [aiProviders, setAiProviders] = useState<AIProviderWithModels[]>([]);
+  const [documentProviders, setDocumentProviders] = useState<DocumentProvider[]>([]);
   const [loadingAiProviders, setLoadingAiProviders] = useState(false);
+  const [loadingDocProviders, setLoadingDocProviders] = useState(false);
   const [loadingKbs, setLoadingKbs] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [kbPage, setKbPage] = useState(1);
@@ -43,7 +47,6 @@ export default function KnowledgeBasesPage() {
   const [kbSearchKeyword, setKbSearchKeyword] = useState('');
   const [docPage, setDocPage] = useState(1);
   const [docHasMore, setDocHasMore] = useState(true);
-  const [uploadFileList, setUploadFileList] = useState<any[]>([]);
 
   useEffect(() => {
     if (!authService.isAuthenticated()) {
@@ -65,8 +68,9 @@ export default function KnowledgeBasesPage() {
         keyword: kbSearchKeyword || undefined,
       });
 
-      if (response.error) {
-        message.error(response.error);
+      // 检查响应状态
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to load knowledge bases');
         return;
       }
 
@@ -97,6 +101,15 @@ export default function KnowledgeBasesPage() {
     }
   };
 
+  const handleDocScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const bottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
+
+    if (bottom && docHasMore && !loadingDocs && selectedKb) {
+      loadDocuments(selectedKb, docPage + 1);
+    }
+  };
+
 
   const loadAiProviders = async () => {
     setLoadingAiProviders(true);
@@ -109,38 +122,10 @@ export default function KnowledgeBasesPage() {
       if (response.data) {
         setAiProviders(response.data);
 
-        // Debug log - Full API response
-        console.log('🔍 Full API Response:', JSON.stringify(response.data, null, 2));
 
-        // Debug log for embedding models
-        const totalEmbeddingModels = response.data.reduce((count, provider) => {
-          const embeddingCount = provider.models?.filter(m => m.capabilities?.includes('embedding')).length || 0;
-
-          // Log each provider's embedding models
-          if (embeddingCount > 0) {
-            console.log(`📦 Provider "${provider.provider_name}" has ${embeddingCount} embedding models:`,
-              provider.models.filter(m => m.capabilities?.includes('embedding')).map(m => ({
-                id: m.id,
-                name: m.model_name,
-                capabilities: m.capabilities
-              }))
-            );
-          }
-
-          return count + embeddingCount;
-        }, 0);
-
-        if (totalEmbeddingModels === 0) {
-          console.warn('⚠️ No embedding models found. Please check if backend has configured embedding models.');
-          console.warn('📋 Total providers:', response.data.length);
-          console.warn('📋 Total models:', response.data.reduce((sum, p) => sum + (p.models?.length || 0), 0));
-        } else {
-          console.log(`✅ Loaded ${totalEmbeddingModels} embedding models from ${response.data.length} AI providers`);
-        }
       }
     } catch (error: any) {
       message.error(error.message || 'Failed to load AI providers');
-      console.error('❌ Error loading AI providers:', error);
     } finally {
       setLoadingAiProviders(false);
     }
@@ -149,11 +134,52 @@ export default function KnowledgeBasesPage() {
   useEffect(() => {
     if (isCreateModalOpen) {
       loadAiProviders();
+      loadDocumentProviders();
     }
   }, [isCreateModalOpen]);
 
+  const loadDocumentProviders = async () => {
+    setLoadingDocProviders(true);
+    try {
+      const response = await knowledgeBaseService.getDocumentProviders();
+      if ((response.code === 200 || response.code === 0) && response.data) {
+        setDocumentProviders(response.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to load document providers:', error);
+    } finally {
+      setLoadingDocProviders(false);
+    }
+  };
+
   const handleEmbeddingModelChange = (modelId: string) => {
     setEmbeddingModel(modelId);
+
+    // Find the selected model and get its default embedding dimension
+    for (const provider of aiProviders) {
+      const model = provider.models?.find(m => m.id === modelId);
+      if (model && model.embedding_dimensions) {
+        setEmbeddingDimension(model.embedding_dimensions);
+        form.setFieldsValue({ embedding_dimension: model.embedding_dimensions });
+        break;
+      }
+    }
+  };
+
+  const handleRefreshEmbeddingDimension = () => {
+    if (embeddingModel) {
+      for (const provider of aiProviders) {
+        const model = provider.models?.find(m => m.id === embeddingModel);
+        if (model && model.embedding_dimensions) {
+          setEmbeddingDimension(model.embedding_dimensions);
+          form.setFieldsValue({ embedding_dimension: model.embedding_dimensions });
+          message.success(`已重置为默认维度: ${model.embedding_dimensions}`);
+          break;
+        }
+      }
+    } else {
+      message.warning('请先选择嵌入模型');
+    }
   };
 
   const loadDocuments = async (kbId: string, page: number, reset: boolean = false) => {
@@ -173,12 +199,6 @@ export default function KnowledgeBasesPage() {
 
       if (response.data) {
         const newDocs = response.data.items;
-        console.log('📄 Loaded documents:', newDocs.map(d => ({
-          id: d.id,
-          name: d.file_name,
-          status: d.process_status,
-          chunk_count: d.chunk_count
-        })));
         setDocuments(reset ? newDocs : [...documents, ...newDocs]);
         setDocPage(page);
         setDocHasMore(page < response.data.pagination.total_page);
@@ -219,19 +239,15 @@ export default function KnowledgeBasesPage() {
         createData.chunk_strategy = values.chunk_strategy;
       }
 
-      console.log('📤 Creating knowledge base with data:', createData);
-
       const response = await knowledgeBaseService.createKnowledgeBase(createData);
 
       if (response.error) {
         message.error(`Failed to create knowledge base: ${response.error}`);
-        console.error('❌ Create KB error:', response.error);
         return;
       }
 
       if (response.data) {
         message.success('✅ Knowledge base created successfully');
-        console.log('✅ Created KB:', response.data);
 
         // Close modal and reset form
         setIsCreateModalOpen(false);
@@ -244,7 +260,6 @@ export default function KnowledgeBasesPage() {
       }
     } catch (error: any) {
       message.error(error.message || 'Failed to create knowledge base');
-      console.error('❌ Exception creating KB:', error);
     }
   };
 
@@ -254,97 +269,85 @@ export default function KnowledgeBasesPage() {
       return Upload.LIST_IGNORE;
     }
 
-    const uid = `${Date.now()}-${file.name}`;
     let documentId: string | null = null;
     let documentAdded = false;
-
-    // Add file to upload list with uploading status
-    setUploadFileList((prev) => [
-      ...prev,
-      {
-        uid,
-        name: file.name,
-        status: 'uploading',
-        percent: 0,
-      },
-    ]);
 
     // Use SSE upload
     knowledgeBaseService.uploadDocumentSSE(
       selectedKb,
       file,
       (event) => {
-        console.log('📡 SSE Event:', event);
-
-        // 文档创建成功，立即添加到列表
-        if (event.type === 'document_created' && !documentAdded) {
-          documentId = event.document_id || event.id;
+        // 处理包含文档信息的事件（主要是 status 事件）
+        if (!documentAdded && event.document) {
+          const doc = event.document;
+          documentId = doc.id;
           documentAdded = true;
 
           const newDoc: APIDocument = {
-            id: documentId,
-            knowledge_base_id: selectedKb,
-            file_name: file.name,
-            file_type: event.file_type || file.name.split('.').pop() || 'txt',
-            file_size: file.size,
-            process_status: 'processing',
-            chunk_count: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            id: doc.id,
+            knowledge_base_id: doc.knowledge_base_id || selectedKb,
+            file_name: doc.file_name || file.name,
+            file_type: doc.file_type || file.name.split('.').pop() || 'txt',
+            file_size: doc.file_size || file.size,
+            process_status: doc.process_status || 'processing',
+            chunk_count: doc.chunk_count || 0,
+            created_at: doc.created_at || new Date().toISOString(),
+            updated_at: doc.updated_at || new Date().toISOString(),
           };
 
-          // 立即添加到文档列表，显示处理中状态
+          // 立即添加到文档列表
           setDocuments((prev) => [newDoc, ...prev]);
         }
 
-        // 处理进度更新
-        if (event.type === 'processing' && documentId) {
+        // 处理进度更新和状态变化
+        if (documentId && event.document) {
+          const doc = event.document;
           setDocuments((prev) =>
-            prev.map((doc) =>
-              doc.id === documentId
-                ? { ...doc, chunk_count: event.chunks_processed || 0 }
-                : doc
+            prev.map((d) =>
+              d.id === documentId
+                ? {
+                  ...d,
+                  process_status: doc.process_status || d.process_status,
+                  chunk_count: doc.chunk_count || d.chunk_count,
+                  updated_at: doc.updated_at || d.updated_at
+                }
+                : d
             )
           );
         }
 
-        // 处理完成
-        if (event.status === 'completed') {
-          setUploadFileList((prev) =>
-            prev.map((item) =>
-              item.uid === uid ? { ...item, status: 'done', percent: 100 } : item
-            )
-          );
-
-          if (documentId) {
-            setDocuments((prev) =>
-              prev.map((doc) =>
-                doc.id === documentId
-                  ? { ...doc, process_status: 'completed', chunk_count: event.total_chunks || doc.chunk_count }
-                  : doc
+        // 处理消息通知
+        if (event.message && documentId && event.document) {
+          const doc = event.document;
+          if (doc.process_status === 'completed') {
+            message.success(`${file.name} processed successfully`);
+            // 只更新知识库计数，不重新加载整个列表
+            setKnowledgeBases(prev =>
+              prev.map(kb =>
+                kb.id === selectedKb
+                  ? { ...kb, document_count: kb.document_count + 1 }
+                  : kb
               )
             );
+          } else if (doc.process_status === 'failed') {
+            message.error(`${file.name} processing failed`);
           }
-
-          message.success(`${file.name} processed successfully`);
-
-          setTimeout(() => {
-            setUploadFileList((prev) => prev.filter((item) => item.uid !== uid));
-          }, 2000);
-
-          loadKnowledgeBases(kbPage, false);
         }
       }
-    ).then((result) => {
-      console.log('✅ Upload complete:', result);
+    ).then(() => {
+      // Upload complete
     }).catch((error) => {
-      console.error('❌ SSE Upload error:', error);
 
-      setUploadFileList((prev) =>
-        prev.map((item) =>
-          item.uid === uid ? { ...item, status: 'error', percent: 0 } : item
-        )
-      );
+      // 如果文档已经添加到列表，更新其状态为失败
+      if (documentId) {
+        setDocuments((prev) =>
+          prev.map((doc) =>
+            doc.id === documentId
+              ? { ...doc, process_status: 'failed' }
+              : doc
+          )
+        );
+      }
 
       message.error(error.message || 'Upload failed');
     });
@@ -364,7 +367,6 @@ export default function KnowledgeBasesPage() {
       }
 
       message.success('Document deleted successfully');
-      console.log('✅ Document deleted');
 
       // Reload documents list
       loadDocuments(selectedKb, 1, true);
@@ -373,7 +375,6 @@ export default function KnowledgeBasesPage() {
       loadKnowledgeBases(kbPage, false);
     } catch (error: any) {
       message.error(error.message || 'Delete failed');
-      console.error('❌ Delete error:', error);
     }
   };
 
@@ -389,13 +390,11 @@ export default function KnowledgeBasesPage() {
       }
 
       message.info('Document added to processing queue');
-      console.log('✅ Document reprocessing started');
 
       // Reload documents to show updated status
       loadDocuments(selectedKb, 1, true);
     } catch (error: any) {
       message.error(error.message || 'Reprocess failed');
-      console.error('❌ Reprocess error:', error);
     }
   };
 
@@ -416,7 +415,18 @@ export default function KnowledgeBasesPage() {
   };
 
   const formatDate = (dateString: string): string => {
+    // 处理后端返回的特殊时间格式
+    if (!dateString || dateString.startsWith('0001-01-01')) {
+      return 'Just now';
+    }
+
     const date = new Date(dateString);
+
+    // 检查日期是否有效
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
@@ -430,7 +440,7 @@ export default function KnowledgeBasesPage() {
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <Navbar activeTabKey="knowledge" />
-      <div className="grid h-full grid-cols-12">
+      <div className="grid h-[calc(100vh-64px)] grid-cols-12">
         {/* Knowledge Bases Sidebar */}
         <div className="col-span-3 overflow-y-auto border-r border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark">
           <Button
@@ -449,11 +459,10 @@ export default function KnowledgeBasesPage() {
                 <div
                   key={kb.id}
                   onClick={() => setSelectedKb(kb.id)}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    selectedKb === kb.id
-                      ? 'bg-primary/10 text-primary dark:bg-primary/20'
-                      : 'text-background-dark/70 hover:bg-background-dark/5 dark:text-background-light/70 dark:hover:bg-background-light/5'
-                  }`}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${selectedKb === kb.id
+                    ? 'bg-primary/10 text-primary dark:bg-primary/20'
+                    : 'text-background-dark/70 hover:bg-background-dark/5 dark:text-background-light/70 dark:hover:bg-background-light/5'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-xl">{kb.is_official ? '🏢' : '📚'}</span>
@@ -474,207 +483,176 @@ export default function KnowledgeBasesPage() {
         </div>
 
         {/* Documents Area */}
-        <div className="col-span-9 flex flex-col overflow-y-auto bg-white p-6 dark:bg-background-dark/50">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-background-dark/60 dark:text-background-light/60">
-              Embedding Model: text-embedding-ada-002
-            </p>
-            <Button
-              type="text"
-              icon={<SearchOutlined />}
-              className="flex h-9 w-9 items-center justify-center"
+        <div className="col-span-9 flex flex-col bg-white dark:bg-background-dark/50">
+          {/* Fixed Header Area */}
+          <div className="p-6 pb-0">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-background-dark/60 dark:text-background-light/60">
+                Embedding Model: text-embedding-ada-002
+              </p>
+              <Button
+                type="text"
+                icon={<SearchOutlined />}
+                className="flex h-9 w-9 items-center justify-center"
+              />
+            </div>
+
+            <hr className="my-4 border-background-dark/10 dark:border-background-light/10" />
+
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                { key: 'all', label: 'All' },
+                { key: 'text', label: 'Text' },
+                { key: 'pdf', label: 'PDF' },
+                { key: 'url', label: 'URL' },
+              ]}
+              className="mb-0"
             />
-          </div>
 
-          <hr className="my-4 border-background-dark/10 dark:border-background-light/10" />
-
-          <Tabs
-            activeKey={activeTab}
-            onChange={setActiveTab}
-            items={[
-              { key: 'all', label: 'All' },
-              { key: 'text', label: 'Text' },
-              { key: 'pdf', label: 'PDF' },
-              { key: 'url', label: 'URL' },
-            ]}
-            className="mb-0"
-          />
-
-          <div className="mt-4">
-            <Dragger
-              beforeUpload={handleUpload}
-              showUploadList={false}
-              className="rounded-lg"
-            >
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined className="text-4xl text-primary/60" />
-              </p>
-              <p className="ant-upload-text text-base font-medium">
-                Click or drag file to this area
-              </p>
-              <p className="ant-upload-hint text-sm text-background-dark/60 dark:text-background-light/60">
-                Support for single file upload
-              </p>
-            </Dragger>
-
-            {/* Custom upload list */}
-            {uploadFileList.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {uploadFileList.map((file) => (
-                  <div
-                    key={file.uid}
-                    className="flex items-center gap-3 rounded-lg border border-background-dark/10 bg-background-light p-3 dark:border-background-light/10 dark:bg-background-dark/30"
-                  >
-                    <FileTextOutlined className="text-2xl text-blue-600 dark:text-blue-400" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-background-dark dark:text-background-light">
-                        {file.name}
-                      </p>
-                      <p
-                        className={`text-xs ${
-                          file.status === 'done'
-                            ? 'text-green-600 dark:text-green-400'
-                            : file.status === 'error'
-                              ? 'text-red-600 dark:text-red-400'
-                              : 'text-background-dark/60 dark:text-background-light/60'
-                        }`}
-                      >
-                        {file.status === 'uploading' && 'Uploading...'}
-                        {file.status === 'done' && 'Upload completed'}
-                        {file.status === 'error' && 'Upload failed'}
-                      </p>
-                    </div>
-                    {file.status === 'uploading' && (
-                      <SyncOutlined spin className="text-lg text-blue-600" />
-                    )}
-                    {file.status === 'done' && (
-                      <CheckCircleOutlined className="text-lg text-green-600" />
-                    )}
-                    {file.status === 'error' && (
-                      <CheckCircleOutlined className="text-lg text-red-600" />
-                    )}
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<DeleteOutlined />}
-                      danger
-                      onClick={() => setUploadFileList((prev) => prev.filter((item) => item.uid !== file.uid))}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 space-y-4">
-            {filteredDocuments.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center gap-4 rounded-lg border border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark/30"
+            <div className="mt-4">
+              <Dragger
+                multiple
+                beforeUpload={handleUpload}
+                showUploadList={false}
+                className="rounded-lg"
               >
+                <p className="ant-upload-drag-icon">
+                  <InboxOutlined className="text-4xl text-primary/60" />
+                </p>
+                <p className="ant-upload-text text-base font-medium">
+                  Click or drag files to this area
+                </p>
+                <p className="ant-upload-hint text-sm text-background-dark/60 dark:text-background-light/60">
+                  Support for multiple files upload. Select multiple files or drag them here.
+                </p>
+              </Dragger>
+
+
+            </div>
+          </div>
+
+          {/* Scrollable Documents Area */}
+          <div className="flex-1 overflow-y-auto p-6 pt-0" onScroll={handleDocScroll}>
+            <div className="mt-4 space-y-4">
+              {filteredDocuments.map((doc) => (
                 <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-lg ${
-                    doc.file_type === 'pdf'
+                  key={doc.id}
+                  className="flex items-center gap-4 rounded-lg border border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark/30"
+                >
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-lg ${doc.file_type === 'pdf'
                       ? 'bg-red-100 dark:bg-red-900/30'
                       : 'bg-blue-100 dark:bg-blue-900/30'
-                  }`}
-                >
-                  {getDocumentIcon(doc.file_type, doc.process_status)}
-                </div>
+                      }`}
+                  >
+                    {getDocumentIcon(doc.file_type, doc.process_status)}
+                  </div>
 
-                <div className="flex-1">
-                  <p className="font-medium text-background-dark dark:text-background-light">
-                    {doc.file_name}
-                  </p>
-                  <p className="text-sm text-background-dark/60 dark:text-background-light/60">
-                    {formatFileSize(doc.file_size)} • {formatDate(doc.created_at)} • {doc.chunk_count} chunks
-                  </p>
-                  {doc.process_status === 'processing' && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <Progress percent={0} size="small" status="active" showInfo={false} />
-                      <span className="text-xs text-background-dark/50">Processing...</span>
-                    </div>
-                  )}
-                  {doc.process_status === 'failed' && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">Processing failed</p>
-                  )}
-                </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-background-dark dark:text-background-light">
+                      {doc.file_name}
+                    </p>
+                    <p className="text-sm text-background-dark/60 dark:text-background-light/60">
+                      {formatFileSize(doc.file_size)} • {formatDate(doc.created_at)} • {doc.chunk_count} chunks
+                    </p>
 
-                <div className="flex items-center gap-2">
-                  {doc.process_status === 'pending' && (
-                    <>
+                    {doc.process_status === 'processing' && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Progress percent={0} size="small" status="active" showInfo={false} />
+                        <span className="text-xs text-background-dark/50">Processing...</span>
+                      </div>
+                    )}
+                    {doc.process_status === 'failed' && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">Processing failed</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {doc.process_status === 'pending' && (
+                      <>
+                        <Button
+                          type="text"
+                          icon={<ClockCircleOutlined />}
+                          style={{ color: '#ea580c' }}
+                          disabled
+                          title="Waiting for processing"
+                        />
+                      </>
+                    )}
+                    {doc.process_status === 'completed' && (
+                      <>
+                        <Button
+                          type="text"
+                          icon={<SyncOutlined />}
+                          onClick={() => handleReprocess(doc.id)}
+                          title="Reprocess document"
+                        />
+                        <Button
+                          type="text"
+                          icon={<CheckCircleOutlined />}
+                          style={{ color: '#16a34a' }}
+                          title="Completed"
+                        />
+                      </>
+                    )}
+                    {doc.process_status === 'processing' && (
                       <Button
                         type="text"
-                        icon={<ClockCircleOutlined />}
-                        className="text-orange-600 dark:text-orange-400"
+                        icon={<SyncOutlined spin />}
                         disabled
-                        title="Waiting for processing"
+                        title="Processing"
                       />
-                    </>
-                  )}
-                  {doc.process_status === 'completed' && (
-                    <>
-                      <Button
-                        type="text"
-                        icon={<SyncOutlined />}
-                        onClick={() => handleReprocess(doc.id)}
-                        title="Reprocess document"
-                      />
-                      <Button
-                        type="text"
-                        icon={<CheckCircleOutlined />}
-                        className="text-green-600 dark:text-green-400"
-                        title="Completed"
-                      />
-                    </>
-                  )}
-                  {doc.process_status === 'processing' && (
+                    )}
+                    {doc.process_status === 'failed' && (
+                      <>
+                        <Button
+                          type="text"
+                          icon={<SyncOutlined />}
+                          onClick={() => handleReprocess(doc.id)}
+                          title="Retry processing"
+                        />
+                        <Button
+                          type="text"
+                          icon={<CloseCircleOutlined />}
+                          style={{ color: '#dc2626' }}
+                          title="Processing failed"
+                        />
+                      </>
+                    )}
                     <Button
                       type="text"
-                      icon={<SyncOutlined spin />}
-                      disabled
-                      title="Processing"
+                      icon={<DeleteOutlined />}
+                      danger
+                      onClick={() => handleDelete(doc.id)}
+                      title="Delete document"
                     />
-                  )}
-                  {doc.process_status === 'failed' && (
-                    <Button
-                      type="text"
-                      icon={<SyncOutlined />}
-                      onClick={() => handleReprocess(doc.id)}
-                      title="Retry processing"
-                    />
-                  )}
-                  <Button
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    danger
-                    onClick={() => handleDelete(doc.id)}
-                    title="Delete document"
-                  />
+                  </div>
                 </div>
-              </div>
-            ))}
-            {loadingDocs && (
-              <div className="py-4 text-center text-sm text-background-dark/50 dark:text-background-light/50">
-                Loading documents...
+              ))}
+              {loadingDocs && (
+                <div className="py-4 text-center text-sm text-background-dark/50 dark:text-background-light/50">
+                  Loading documents...
+                </div>
+              )}
+            </div>
+
+            {filteredDocuments.length === 0 && !loadingDocs && (
+              <div className="flex flex-1 items-center justify-center py-12">
+                <div className="text-center">
+                  <p className="text-lg text-background-dark/60 dark:text-background-light/60">
+                    {selectedKb ? 'No documents found' : 'Select a knowledge base to view documents'}
+                  </p>
+                  {selectedKb && (
+                    <p className="mt-2 text-sm text-background-dark/50 dark:text-background-light/50">
+                      Upload your first document to get started
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
-
-          {filteredDocuments.length === 0 && !loadingDocs && (
-            <div className="flex flex-1 items-center justify-center py-12">
-              <div className="text-center">
-                <p className="text-lg text-background-dark/60 dark:text-background-light/60">
-                  {selectedKb ? 'No documents found' : 'Select a knowledge base to view documents'}
-                </p>
-                {selectedKb && (
-                  <p className="mt-2 text-sm text-background-dark/50 dark:text-background-light/50">
-                    Upload your first document to get started
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -729,6 +707,24 @@ export default function KnowledgeBasesPage() {
                   </Form.Item>
 
                   <Form.Item
+                    label="文档处理服务商"
+                    name="document_provider"
+                    tooltip="选择用于处理文档的服务商"
+                  >
+                    <Select
+                      placeholder="Select document provider (optional)"
+                      allowClear
+                      loading={loadingDocProviders}
+                    >
+                      {documentProviders.map((provider) => (
+                        <Select.Option key={provider.id} value={provider.id}>
+                          {provider.provider_name}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item
                     label="嵌入模型"
                     name="embedding_model"
                     rules={[{ required: true, message: 'Please select an embedding model' }]}
@@ -758,6 +754,24 @@ export default function KnowledgeBasesPage() {
                     </Select>
                   </Form.Item>
 
+                  <Form.Item
+                    label="嵌入维度"
+                    name="embedding_dimension"
+                    tooltip="向量维度，会在选择嵌入模型后自动填充默认值"
+                  >
+                    <Input
+                      type="number"
+                      placeholder="Auto-filled from embedding model"
+                      suffix={
+                        <SyncOutlined
+                          onClick={handleRefreshEmbeddingDimension}
+                          style={{ cursor: 'pointer', color: '#1890ff' }}
+                          title="重置为默认维度"
+                        />
+                      }
+                    />
+                  </Form.Item>
+
                   <Form.Item label="重排模型" name="rerank_model">
                     <Select
                       placeholder="Select rerank model"
@@ -782,6 +796,26 @@ export default function KnowledgeBasesPage() {
                         );
                       })}
                     </Select>
+                  </Form.Item>
+
+                  <Form.Item
+                    label="检索文档片段数量"
+                    name="retrieval_top_k"
+                    initialValue={5}
+                    tooltip="从知识库中检索的文档片段数量，范围 1-50"
+                  >
+                    <Slider
+                      min={1}
+                      max={50}
+                      marks={{
+                        1: '1',
+                        10: '10',
+                        20: '20',
+                        30: '30',
+                        40: '40',
+                        50: '50'
+                      }}
+                    />
                   </Form.Item>
                 </>
               )}
