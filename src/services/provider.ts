@@ -84,4 +84,8 @@ export const providerService = {
       is_enabled,
     });
   },
+
+  async getAIModel(id: string) {
+    return apiClient.get<AIModel>(`/api/v1/ai-models/${id}`);
+  },
 };

@@ -72,7 +72,7 @@ export interface SearchResult {
     file_name: string;
     page?: number;
     chunk_index?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -114,6 +114,10 @@ export const knowledgeBaseService = {
     return apiClient.delete<{ message: string }>(`/api/v1/knowledge-bases/${id}`);
   },
 
+  async batchDeleteKnowledgeBases(ids: string[]) {
+    return apiClient.delete<{ message: string }>('/api/v1/knowledge-bases/batch', { ids });
+  },
+
   // Document APIs
   async getDocuments(
     kbId: string,
@@ -131,125 +135,110 @@ export const knowledgeBaseService = {
     return apiClient.get<Document>(`/api/v1/knowledge-bases/${kbId}/documents/${docId}`);
   },
 
-  uploadDocumentSSE(kbId: string, file: File, onProgress?: (event: any) => void) {
+  async uploadDocument(kbId: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
 
-    console.log('🚀 Starting SSE upload for:', file.name);
-    console.log('📍 Upload URL:', `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${kbId}/documents`);
+    return apiClient.post<{ document: Document; message: string }>(
+      `/api/v1/knowledge-bases/${kbId}/documents/upload`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+  },
 
-    // 使用 fetch + ReadableStream 来处理 SSE
-    return fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${kbId}/documents`,
+  // 批量上传文档 - 使用 SSE 流式响应
+  async batchUploadDocuments(
+    kbId: string,
+    files: File[],
+    onEvent?: (eventType: string, data: Record<string, unknown>) => void
+  ): Promise<{ success: boolean }> {
+    const formData = new FormData();
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    const token = localStorage.getItem('access_token');
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${kbId}/documents/batch-upload`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-          Accept: 'text/event-stream',
+          Authorization: `Bearer ${token}`,
+          // 不要设置 Content-Type，让浏览器自动设置 multipart/form-data
         },
         body: formData,
       }
-    ).then(async (response) => {
-      console.log('📥 Response received:', {
-        status: response.status,
-        contentType: response.headers.get('content-type'),
-        headers: Object.fromEntries(response.headers.entries())
-      });
+    );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `HTTP ${response.status}`);
-      }
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
 
-      // 检查响应类型
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('text/event-stream')) {
-        console.warn('⚠️ Response is not SSE, content-type:', contentType);
-        console.warn('⚠️ Expected SSE but got different content type. This might indicate a backend configuration issue.');
-        
-        // 尝试按JSON处理，但这通常表示配置问题
-        const data = await response.json();
-        console.log('📦 Fallback JSON Response:', data);
+    // 处理 SSE 流响应
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
 
-        // 简单的事件触发，不模拟复杂流程
-        if (onProgress && data.data) {
-          onProgress({
-            type: 'document_created',
-            ...data.data
-          });
-        }
+    if (!reader) {
+      throw new Error('No response body');
+    }
 
-        return { data: data.data };
-      }
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
 
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let buffer = '';
-      console.log('🎯 Starting to read SSE stream...');
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          console.log('✅ SSE stream finished');
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-
-        // 保留最后一个可能不完整的行
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          console.log('📝 SSE Line:', line);
-
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('🏁 SSE stream done signal received');
-              return { success: true };
-            }
-
-            try {
-              const event = JSON.parse(data);
-              console.log('🔔 SSE Event parsed:', {
-                type: event.type,
-                status: event.status,
-                document_id: event.document_id || event.id,
-                file_size: event.file_size,
-                created_at: event.created_at,
-                full_event: event
-              });
-
-              if (onProgress) {
-                onProgress(event);
-              }
-
-              // 如果是最终状态，返回结果
-              if (event.status === 'completed' || event.status === 'failed') {
-                if (event.status === 'failed') {
-                  throw new Error(event.error || 'Processing failed');
-                }
-                return { data: event };
-              }
-            } catch (e) {
-              console.warn('Failed to parse SSE data:', data, e);
-            }
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.substring(6));
+            onEvent?.(data.type, data);
+          } catch (e) {
+            console.error('Failed to parse SSE data:', e);
           }
         }
       }
+    }
 
-      return { success: true };
-    });
+    return { success: true };
+  },
+
+  // 监控单个文档处理状态
+  createDocumentStatusStream(kbId: string, docId: string): EventSource {
+    const token = localStorage.getItem('access_token');
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${kbId}/document-stream/${docId}?resource=doc:${docId}&token=${encodeURIComponent(token || '')}`;
+    
+    return new EventSource(url);
+  },
+
+  // 监控知识库级别的文档状态
+  createKnowledgeBaseStatusStream(kbId: string): EventSource {
+    const token = localStorage.getItem('access_token');
+    const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${kbId}/document-stream/dummy?resource=kb:${kbId}&token=${encodeURIComponent(token || '')}`;
+    
+    return new EventSource(url);
   },
 
   async deleteDocument(kbId: string, docId: string) {
     return apiClient.delete<{ message: string }>(`/api/v1/knowledge-bases/${kbId}/documents/${docId}`);
+  },
+
+  async batchDeleteDocuments(kbId: string, documentIds: string[]) {
+    return apiClient.post<{
+      total_count: number;
+      success_count: number;
+      failed_count: number;
+      failed_items?: Array<{ document_id: string; error: string }>;
+    }>(`/api/v1/knowledge-bases/${kbId}/documents/batch-delete`, {
+      document_ids: documentIds,
+    });
   },
 
   async reprocessDocument(kbId: string, docId: string) {

@@ -53,7 +53,7 @@ export const authService = {
   },
 
   async login(data: LoginRequest) {
-    return apiClient.post<LoginResponse>('/api/v1/auth/login', data);
+    return apiClient.post<LoginResponseData>('/api/v1/auth/login', data);
   },
 
   async verify2FA(data: Verify2FARequest) {

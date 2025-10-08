@@ -173,8 +173,9 @@ export default function ChatSidebar({
 
       // Don't close modal - let user continue adding more assistants
       message.success('Assistant added to favorites');
-    } catch (error: any) {
-      if (error.message?.includes('already in favorites')) {
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('already in favorites')) {
         message.warning('Assistant is already in favorites');
         // Still select it but don't close modal
         setSelectedAgent(agent.id);
@@ -201,7 +202,7 @@ export default function ChatSidebar({
       }
 
       message.success('Assistant removed from favorites');
-    } catch (error: any) {
+    } catch (error) {
       message.error('Failed to remove assistant from favorites');
     }
   };
@@ -227,8 +228,9 @@ export default function ChatSidebar({
       } else {
         message.error(response.message || 'Failed to rename topic');
       }
-    } catch (error: any) {
-      message.error(error.message || 'Failed to rename topic');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to rename topic';
+      message.error(errorMessage);
     }
   };
 
@@ -256,8 +258,9 @@ export default function ChatSidebar({
           } else {
             message.error(response.message || 'Failed to delete topic');
           }
-        } catch (error: any) {
-          message.error(error.message || 'Failed to delete topic');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete topic';
+          message.error(errorMessage);
         }
       },
     });
@@ -349,7 +352,7 @@ export default function ChatSidebar({
                 No favorite assistants
               </p>
               <p className="mt-1 text-xs text-background-dark-40 dark:text-background-light-40">
-                Click "添加助手" to add your favorites
+                Click &quot;添加助手&quot; to add your favorites
               </p>
             </div>
           ) : (
@@ -763,7 +766,7 @@ export default function ChatSidebar({
                           help
                         </span>
                         <span className="invisible absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-700 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:visible group-hover:opacity-100">
-                          Automatically collapse the 'thinking' process display.
+                          Automatically collapse the &apos;thinking&apos; process display.
                         </span>
                       </div>
                     </div>

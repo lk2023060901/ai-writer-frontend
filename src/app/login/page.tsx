@@ -55,8 +55,9 @@ export default function LoginPage() {
         message.success('Login successful!');
         router.push('/chat');
       }
-    } catch (error: any) {
-      message.error(error.message || 'Login failed');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -75,8 +76,8 @@ export default function LoginPage() {
         code: twoFACode,
       });
 
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || '2FA verification failed');
         return;
       }
 
@@ -86,8 +87,9 @@ export default function LoginPage() {
         setShow2FAModal(false);
         router.push('/chat');
       }
-    } catch (error: any) {
-      message.error(error.message || '2FA verification failed');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '2FA verification failed';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -180,7 +182,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <span className="text-sm text-background-dark-60 dark:text-background-light-60">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
             </span>
             <Link href="/register" className="text-sm font-medium text-primary hover:underline">
               Register Account

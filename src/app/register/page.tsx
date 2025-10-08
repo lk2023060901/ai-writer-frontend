@@ -7,6 +7,14 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
 
+interface RegisterFormValues {
+  username: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+  verification_code?: string;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const { message } = App.useApp();
@@ -48,7 +56,7 @@ export default function RegisterPage() {
     message.success('Verification code sent to your email');
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: RegisterFormValues) => {
     if (!passwordsMatch) {
       message.error('Passwords do not match');
       return;
@@ -62,8 +70,8 @@ export default function RegisterPage() {
         password: values.password,
       });
 
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Registration failed');
         return;
       }
 
@@ -73,8 +81,9 @@ export default function RegisterPage() {
       setTimeout(() => {
         router.push('/login');
       }, 2000);
-    } catch (error: any) {
-      message.error(error.message || 'Registration failed');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Button, Dropdown, Input, Tag, Form, App, Tabs, Upload, Modal, Select } from 'antd';
 import {
   PlusOutlined,
@@ -9,8 +9,6 @@ import {
   MoreOutlined,
   EditOutlined,
   DeleteOutlined,
-  StarOutlined,
-  StarFilled,
   AppstoreOutlined,
   InboxOutlined,
   LinkOutlined,
@@ -18,12 +16,19 @@ import {
 } from '@ant-design/icons';
 import Navbar from '@/components/Navbar';
 import { authService } from '@/services/auth';
-import { chatService, Agent, AgentsResponse, ImportResponse } from '@/services/chat';
+import { chatService, Agent, ImportResponse } from '@/services/chat';
 import { knowledgeBaseService, KnowledgeBase } from '@/services/knowledgeBase';
 import { useRouter } from 'next/navigation';
 
-const { TabPane } = Tabs;
 const { Dragger } = Upload;
+
+interface AgentFormValues {
+  name: string;
+  emoji?: string;
+  prompt: string;
+  tags?: string;
+  knowledge_base_ids?: string[];
+}
 
 // Categories will be dynamically generated from agent tags
 
@@ -48,49 +53,20 @@ export default function AgentsPage() {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [loadingKnowledgeBases, setLoadingKnowledgeBases] = useState(false);
 
-  useEffect(() => {
+  const loadAgentsCallback = useCallback(() => {
     if (!authService.isAuthenticated()) {
       message.warning('Please login first');
       router.push('/login');
     } else {
       loadAgents();
     }
-  }, [router]);
+  }, [message, router]);
 
-  // Load knowledge bases when modal opens
   useEffect(() => {
-    console.log('🎯 Modal state changed:', { isModalOpen, currentKbCount: knowledgeBases.length });
-    if (isModalOpen) {
-      console.log('🚀 Modal opened, triggering knowledge base load...');
-      loadKnowledgeBases();
-    }
-  }, [isModalOpen]);
+    loadAgentsCallback();
+  }, [loadAgentsCallback]);
 
-  const loadAgents = async (page: number = 1) => {
-    setLoading(true);
-    try {
-      const response = await chatService.getAgents({
-        page,
-        page_size: pageSize,
-        keyword: searchTerm || undefined,
-      });
-      if (response.error) {
-        message.error(response.error);
-        return;
-      }
-      if (response.data) {
-        setAgents(response.data.items);
-        setCurrentPage(response.data.pagination.page);
-        setTotalPages(response.data.pagination.total_pages);
-      }
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load agents');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadKnowledgeBases = async () => {
+  const loadKnowledgeBasesCallback = useCallback(async () => {
     setLoadingKnowledgeBases(true);
     try {
       console.log('🔍 Loading knowledge bases...');
@@ -111,11 +87,45 @@ export default function AgentsPage() {
           message.warning(response.message);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Failed to load knowledge bases:', error);
       message.error('Failed to load knowledge bases');
     } finally {
       setLoadingKnowledgeBases(false);
+    }
+  }, [message]);
+
+  // Load knowledge bases when modal opens
+  useEffect(() => {
+    console.log('🎯 Modal state changed:', { isModalOpen, currentKbCount: knowledgeBases.length });
+    if (isModalOpen) {
+      console.log('🚀 Modal opened, triggering knowledge base load...');
+      loadKnowledgeBasesCallback();
+    }
+  }, [isModalOpen, knowledgeBases.length, loadKnowledgeBasesCallback]);
+
+  const loadAgents = async (page: number = 1) => {
+    setLoading(true);
+    try {
+      const response = await chatService.getAgents({
+        page,
+        page_size: pageSize,
+        keyword: searchTerm || undefined,
+      });
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to load agents');
+        return;
+      }
+      if (response.data) {
+        setAgents(response.data.items);
+        setCurrentPage(response.data.pagination.page);
+        setTotalPages(response.data.pagination.total_pages);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load agents';
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -153,10 +163,11 @@ export default function AgentsPage() {
     };
 
     Array.from(categorySet).sort().forEach(tag => {
+      const emoji = categoryIcons[tag];
       categoryList.push({
         key: tag,
         label: tag,
-        icon: categoryIcons[tag] || null
+        icon: emoji ? <span className="text-lg">{emoji}</span> : <span className="text-lg">📋</span>
       });
     });
 
@@ -201,21 +212,22 @@ export default function AgentsPage() {
       onOk: async () => {
         try {
           const response = await chatService.deleteAgent(id);
-          if (response.error) {
+          if (response.code !== 200 && response.code !== 0) {
             // Handle specific error codes
             if (response.code === 403) {
               message.error('You can only delete agents you created');
             } else if (response.code === 404) {
               message.error('Agent not found');
             } else {
-              message.error(response.error || 'Failed to delete agent');
+              message.error(response.message || 'Failed to delete agent');
             }
             return;
           }
           message.success('Agent deleted successfully');
           loadAgents(currentPage);
-        } catch (error: any) {
-          message.error(error.message || 'Failed to delete agent');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete agent';
+          message.error(errorMessage);
         }
       },
     });
@@ -227,18 +239,19 @@ export default function AgentsPage() {
         ? await chatService.disableAgent(id)
         : await chatService.enableAgent(id);
 
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to toggle agent');
         return;
       }
       message.success(`Agent ${!isEnabled ? 'enabled' : 'disabled'} successfully`);
       loadAgents(currentPage);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to toggle agent');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to toggle agent';
+      message.error(errorMessage);
     }
   };
 
-  const handleCreateOrUpdate = async (values: any) => {
+  const handleCreateOrUpdate = async (values: AgentFormValues) => {
     setLoading(true);
     try {
       // Process tags from comma-separated string to array
@@ -251,7 +264,7 @@ export default function AgentsPage() {
 
       if (editingAgent) {
         const response = await chatService.updateAgent(editingAgent.id, processedValues);
-        if (response.error) {
+        if (response.code !== 200 && response.code !== 0) {
           // Handle specific error codes
           if (response.code === 403) {
             message.error('You can only edit agents you created');
@@ -260,18 +273,18 @@ export default function AgentsPage() {
           } else if (response.code === 400) {
             message.error(response.message || 'Invalid agent data. Prompt must be at least 10 characters.');
           } else {
-            message.error(response.error || 'Failed to update agent');
+            message.error(response.message || 'Failed to update agent');
           }
           return;
         }
         message.success('Agent updated successfully');
       } else {
         const response = await chatService.createAgent(processedValues);
-        if (response.error) {
+        if (response.code !== 200 && response.code !== 0) {
           if (response.code === 400) {
             message.error(response.message || 'Invalid agent data. Prompt must be at least 10 characters.');
           } else {
-            message.error(response.error || 'Failed to create agent');
+            message.error(response.message || 'Failed to create agent');
           }
           return;
         }
@@ -281,8 +294,9 @@ export default function AgentsPage() {
       setEditingAgent(null);
       form.resetFields();
       loadAgents(currentPage);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to save agent');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save agent';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -309,9 +323,10 @@ export default function AgentsPage() {
         try {
           // Try the bulk import endpoint first
           result = await chatService.importAgentsFromFile(importFile);
-        } catch (error: any) {
+        } catch (error) {
           // If bulk import fails, fall back to parsing and creating individually
-          console.log('Bulk import failed, falling back to individual creation:', error.message);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.log('Bulk import failed, falling back to individual creation:', errorMessage);
 
           try {
             const text = await importFile.text();
@@ -326,7 +341,13 @@ export default function AgentsPage() {
             const errors: string[] = [];
 
             // Create agents one by one
-            for (const agent of agentsData) {
+            for (const agent of agentsData as Array<{
+              name?: string;
+              emoji?: string;
+              prompt?: string;
+              tags?: string[];
+              knowledge_base_ids?: string[];
+            }>) {
               try {
                 await chatService.createAgent({
                   name: agent.name || 'Imported Agent',
@@ -336,9 +357,10 @@ export default function AgentsPage() {
                   knowledge_base_ids: agent.knowledge_base_ids || [],
                 });
                 successCount++;
-              } catch (createError: any) {
+              } catch (createError) {
                 failCount++;
-                errors.push(`${agent.name}: ${createError.message}`);
+                const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
+                errors.push(`${agent.name || 'Unknown'}: ${errorMessage}`);
               }
             }
 
@@ -348,8 +370,9 @@ export default function AgentsPage() {
               errors: errors.length > 0 ? errors : undefined,
               agents: [],
             };
-          } catch (parseError: any) {
-            message.error(`Failed to parse JSON file: ${parseError.message}`);
+          } catch (parseError) {
+            const errorMessage = parseError instanceof Error ? parseError.message : 'Unknown parse error';
+            message.error(`Failed to parse JSON file: ${errorMessage}`);
             return;
           }
         }
@@ -360,9 +383,10 @@ export default function AgentsPage() {
           if (response.data) {
             result = response.data;
           }
-        } catch (error: any) {
+        } catch (error) {
           // If URL import fails, try to fetch and parse manually
-          console.log('URL import failed, trying manual fetch:', error.message);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.log('URL import failed, trying manual fetch:', errorMessage);
 
           try {
             const response = await fetch(importUrl);
@@ -376,7 +400,13 @@ export default function AgentsPage() {
             let failCount = 0;
             const errors: string[] = [];
 
-            for (const agent of agentsData) {
+            for (const agent of agentsData as Array<{
+              name?: string;
+              emoji?: string;
+              prompt?: string;
+              tags?: string[];
+              knowledge_base_ids?: string[];
+            }>) {
               try {
                 await chatService.createAgent({
                   name: agent.name || 'Imported Agent',
@@ -386,9 +416,10 @@ export default function AgentsPage() {
                   knowledge_base_ids: agent.knowledge_base_ids || [],
                 });
                 successCount++;
-              } catch (createError: any) {
+              } catch (createError) {
                 failCount++;
-                errors.push(`${agent.name}: ${createError.message}`);
+                const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
+                errors.push(`${agent.name}: ${errorMessage}`);
               }
             }
 
@@ -398,8 +429,9 @@ export default function AgentsPage() {
               errors: errors.length > 0 ? errors : undefined,
               agents: [],
             };
-          } catch (fetchError: any) {
-            message.error(`Failed to fetch or parse URL: ${fetchError.message}`);
+          } catch (fetchError) {
+            const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown fetch error';
+            message.error(`Failed to fetch or parse URL: ${errorMessage}`);
             return;
           }
         }
@@ -424,8 +456,9 @@ export default function AgentsPage() {
       setImportFile(null);
       setImportUrl('');
       loadAgents(currentPage);
-    } catch (error: any) {
-      message.error(error.message || 'Failed to import agents');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import agents';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Input, Switch, Button, Collapse, Modal, Form, App } from 'antd';
 import {
   SearchOutlined,
@@ -17,73 +17,25 @@ import { authService } from '@/services/auth';
 import { providerService, AIProviderConfig } from '@/services/provider';
 import { useRouter } from 'next/navigation';
 
-
-interface Provider {
-  id: string;
-  name: string;
-  icon: string;
-  enabled: boolean;
-  added: string;
+interface ProviderFormValues {
+  provider_type: string;
+  provider_name: string;
+  base_url?: string;
+  api_key?: string;
+  api_base_url?: string;
+  enabled?: boolean;
+  [key: string]: string | boolean | undefined;
 }
-
-interface Model {
-  id: string;
-  name: string;
-  services: string[];
-}
-
-const mockProviders: Provider[] = [
-  {
-    id: 'openai',
-    name: 'OpenAI',
-    icon: 'https://seeklogo.com/images/O/openai-logo-83762C9523-seeklogo.com.png',
-    enabled: true,
-    added: '2024-07-29T10:00:00Z',
-  },
-  {
-    id: 'anthropic',
-    name: 'Anthropic',
-    icon: 'https://seeklogo.com/images/A/anthropic-logo-E3275A272A-seeklogo.com.png',
-    enabled: true,
-    added: '2024-07-28T14:00:00Z',
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    icon: 'https://seeklogo.com/images/G/google-ai-logo-996E854153-seeklogo.com.png',
-    enabled: false,
-    added: '2024-07-27T12:00:00Z',
-  },
-];
-
-const mockModels: Record<string, Model[]> = {
-  'Claude 3': [
-    { id: 'claude-3-opus', name: 'Claude 3 Opus', services: ['text', 'image'] },
-    { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', services: ['text', 'image'] },
-    { id: 'claude-3-haiku', name: 'Claude 3 Haiku', services: ['text', 'image'] },
-  ],
-  'GPT-4': [
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', services: ['text', 'image', 'video'] },
-    { id: 'gpt-4', name: 'GPT-4', services: ['text', 'image'] },
-  ],
-  Other: [
-    { id: 'dall-e-3', name: 'DALL-E 3', services: ['image'] },
-    { id: 'text-embedding-ada-002', name: 'text-embedding-ada-002', services: ['embedding'] },
-  ],
-};
 
 export default function ProvidersPage() {
   const router = useRouter();
   const { message } = App.useApp();
   const [form] = Form.useForm();
   const [providers, setProviders] = useState<AIProviderConfig[]>([]);
-  const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedProviderData, setSelectedProviderData] = useState<AIProviderConfig | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [modelSearchTerm, setModelSearchTerm] = useState('');
-  const [activeKeys, setActiveKeys] = useState(['Claude 3', 'GPT-4', 'Other']);
+  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -93,62 +45,57 @@ export default function ProvidersPage() {
     } else {
       loadProviders();
     }
-  }, [router]);
+  }, [message, router]);
 
-  const loadProviders = async () => {
+  const loadProvidersCallback = useCallback(async () => {
     setLoading(true);
     try {
       const response = await providerService.getProviders();
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to load providers');
         return;
       }
       if (response.data) {
         setProviders(response.data);
-        if (response.data.length > 0 && !selectedProvider) {
+        // Auto-select first provider if none selected
+        if (!selectedProvider && response.data[0]) {
           setSelectedProvider(response.data[0].id);
           setSelectedProviderData(response.data[0]);
         }
       }
-    } catch (error: any) {
-      message.error(error.message || 'Failed to load providers');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load providers';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  }, [selectedProvider, message]);
+
+  const loadProviders = () => {
+    loadProvidersCallback();
   };
 
   useEffect(() => {
-    if (selectedProvider) {
-      const provider = providers.find((p) => p.id === selectedProvider);
-      setSelectedProviderData(provider || null);
+    const currentProvider = providers.find(p => p.id === selectedProvider);
+    if (currentProvider) {
+      setSelectedProviderData(currentProvider);
+      form.setFieldsValue(currentProvider);
     }
-  }, [selectedProvider, providers]);
+  }, [selectedProvider, providers, form]);
 
-  const sortedProviders = [...providers].sort((a, b) => {
-    if (a.is_enabled !== b.is_enabled) {
-      return a.is_enabled ? -1 : 1;
-    }
-    if (a.created_at && b.created_at) {
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    }
-    return 0;
-  });
-
-  const filteredProviders = sortedProviders.filter((provider) =>
-    provider.provider_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleToggleProvider = async (id: string, is_enabled: boolean) => {
+  const handleToggleEnabled = async (id: string, is_enabled: boolean) => {
     try {
       const response = await providerService.toggleProvider(id, !is_enabled);
-      if (response.error) {
-        message.error(response.error);
+
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to toggle provider');
         return;
       }
       message.success(`Provider ${!is_enabled ? 'enabled' : 'disabled'} successfully`);
       loadProviders();
-    } catch (error: any) {
-      message.error(error.message || 'Failed to toggle provider');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to toggle provider';
+      message.error(errorMessage);
     }
   };
 
@@ -161,20 +108,21 @@ export default function ProvidersPage() {
       onOk: async () => {
         try {
           const response = await providerService.deleteProvider(id);
-          if (response.error) {
-            message.error(response.error);
+          if (response.code !== 200 && response.code !== 0) {
+            message.error(response.message || 'Failed to delete provider');
             return;
           }
           message.success('Provider deleted successfully');
           loadProviders();
-        } catch (error: any) {
-          message.error(error.message || 'Failed to delete provider');
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to delete provider';
+          message.error(errorMessage);
         }
       },
     });
   };
 
-  const handleUpdateProvider = async (values: any) => {
+  const handleUpdateProvider = async (values: ProviderFormValues) => {
     if (!selectedProvider) return;
 
     setLoading(true);
@@ -184,34 +132,35 @@ export default function ProvidersPage() {
         api_base_url: values.api_base_url,
       });
 
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to update provider');
         return;
       }
 
       message.success('Provider updated successfully');
       loadProviders();
-    } catch (error: any) {
-      message.error(error.message || 'Failed to update provider');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update provider';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateProvider = async (values: any) => {
+  const handleCreateProvider = async (values: ProviderFormValues) => {
     setLoading(true);
     try {
       const response = await providerService.createProvider({
         provider_type: values.provider_type,
         provider_name: values.provider_name,
-        api_key: values.api_key,
+        api_key: values.api_key || '',
         api_base_url: values.api_base_url,
         supports_chat: true,
         supports_embedding: true,
       });
 
-      if (response.error) {
-        message.error(response.error);
+      if (response.code !== 200 && response.code !== 0) {
+        message.error(response.message || 'Failed to create provider');
         return;
       }
 
@@ -219,300 +168,197 @@ export default function ProvidersPage() {
       setIsModalOpen(false);
       form.resetFields();
       loadProviders();
-    } catch (error: any) {
-      message.error(error.message || 'Failed to create provider');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create provider';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalModels = Object.values(mockModels).flat().length;
-
-  const serviceIcons: Record<string, { icon: string; title: string }> = {
-    text: { icon: '📝', title: 'Text' },
-    image: { icon: '🖼️', title: 'Image' },
-    video: { icon: '🎥', title: 'Video' },
-    embedding: { icon: '🔢', title: 'Embedding' },
-  };
-
   return (
-    <div className="flex h-screen flex-col bg-background-light dark:bg-background-dark">
-      <Navbar activeTabKey="providers" />
-      <main className="flex flex-1 overflow-hidden">
-        <div className="grid flex-1 grid-cols-12 overflow-hidden">
-          {/* Left Sidebar Navigation */}
-          <aside className="col-span-2 overflow-y-auto border-r border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark/50">
-            <div className="rounded-lg bg-card-light p-2 dark:bg-card-dark">
-              <nav className="space-y-1">
-                <a className="flex cursor-pointer items-center gap-3 rounded-md bg-primary/10 px-3 py-2 text-sm font-semibold text-primary dark:bg-primary/20" href="/providers">
-                  <span className="text-xl">🔌</span>
-                  <span>Providers</span>
-                </a>
-              </nav>
-            </div>
-          </aside>
-
-          {/* Providers List */}
-          <div className="col-span-3 flex flex-col border-r border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/30">
-          <div className="p-4">
-            <Input
-              prefix={<SearchOutlined className="text-background-dark/50 dark:text-background-light/50" />}
-              placeholder="Search providers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded-md"
-            />
-          </div>
-
-          <div className="flex-1 space-y-2 overflow-y-auto px-4 pb-4">
-            {filteredProviders.map((provider) => (
-              <div
-                key={provider.id}
-                onClick={() => setSelectedProvider(provider.id)}
-                className={`flex cursor-pointer items-center justify-between rounded-lg bg-card-light p-3 transition-colors dark:bg-card-dark ${
-                  selectedProvider === provider.id
-                    ? 'bg-primary/10 ring-1 ring-primary/50 dark:bg-primary/20'
-                    : 'hover:bg-background-dark/5 dark:hover:bg-background-light/5'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">🤖</span>
-                  <span className="text-sm font-medium text-background-dark dark:text-background-light">
-                    {provider.provider_name}
-                  </span>
-                </div>
-                <Switch
-                  checked={provider.is_enabled}
-                  onChange={(checked, e) => {
-                    e?.stopPropagation();
-                    handleToggleProvider(provider.id, provider.is_enabled);
-                  }}
-                  size="small"
-                />
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-background-dark/10 bg-background-light p-4 dark:border-background-light/10 dark:bg-background-dark/30">
-            <Button
-              type="dashed"
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalOpen(true)}
-              className="w-full border-primary/50 bg-primary/5 text-primary hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20"
-            >
-              Add
-            </Button>
-          </div>
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-background-dark dark:text-background-light">
+            AI Providers
+          </h1>
+          <p className="mt-1 text-sm text-background-dark/60 dark:text-background-light/60">
+            Manage your AI service providers and their configurations
+          </p>
         </div>
 
-        {/* Provider Details */}
-        <main className="col-span-7 flex flex-col overflow-y-auto bg-card-light p-6 dark:bg-card-dark">
-          {selectedProviderData && (
-            <>
-              <div className="flex items-center justify-between border-b border-background-dark/10 pb-4 dark:border-background-light/10">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg font-semibold text-background-dark dark:text-background-light">
-                    {selectedProviderData.provider_name}
-                  </h2>
-                  <Button
-                    type="text"
-                    icon={<DeleteOutlined />}
-                    danger
-                    onClick={() => handleDeleteProvider(selectedProviderData.id)}
-                    className="flex h-7 w-7 items-center justify-center"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-background-dark/70 dark:text-background-light/70">
-                    Enable
-                  </span>
-                  <Switch
-                    checked={selectedProviderData.is_enabled}
-                    onChange={() => handleToggleProvider(selectedProviderData.id, selectedProviderData.is_enabled)}
-                  />
-                </div>
-              </div>
-
-              <Form
-                layout="vertical"
-                initialValues={{
-                  api_key: selectedProviderData.api_key,
-                  api_base_url: selectedProviderData.api_base_url,
-                }}
-                onFinish={handleUpdateProvider}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Providers List */}
+          <div className="md:col-span-1 space-y-4">
+            {/* Search and Add */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search providers..."
+                prefix={<SearchOutlined />}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => setIsModalOpen(true)}
               >
-                <div className="py-6">
-                  <Form.Item
-                    label="API Key"
-                    name="api_key"
-                    rules={[{ required: true, message: 'Please enter API key' }]}
-                  >
-                    <Input
-                      type={showApiKey ? 'text' : 'password'}
-                      suffix={
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={showApiKey ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                            onClick={() => setShowApiKey(!showApiKey)}
-                          />
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<SyncOutlined />}
-                            htmlType="submit"
-                            loading={loading}
-                          />
-                        </div>
-                      }
-                    />
-                  </Form.Item>
-                </div>
-
-                <div className="pb-6">
-                  <Form.Item label="API Address" name="api_base_url">
-                    <Input placeholder="https://api.openai.com/v1" />
-                  </Form.Item>
-                  <p className="mt-2 text-xs text-background-dark/50 dark:text-background-light/50">
-                    Example:{' '}
-                    <code className="rounded bg-background-dark/10 px-1 py-0.5 dark:bg-background-light/10">
-                      https://api.cursorai.art/v1/chat/completions/
-                    </code>{' '}
-                    (ignore /v1 if ending with /), or{' '}
-                    <code className="rounded bg-background-dark/10 px-1 py-0.5 dark:bg-background-light/10">
-                      #
-                    </code>{' '}
-                    for forced input address.
-                  </p>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button type="primary" htmlType="submit" loading={loading}>
-                    Save Changes
-                  </Button>
-                </div>
-              </Form>
-            </>
-          )}
-
-          {!selectedProviderData && (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-background-dark/60 dark:text-background-light/60">
-                Select a provider to view details
-              </p>
-            </div>
-          )}
-
-          <div className="border-t border-background-dark/10 pt-6 dark:border-background-light/10">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-background-dark dark:text-background-light">
-                  Models
-                </h3>
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary dark:bg-primary/20">
-                  {totalModels}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  prefix={<SearchOutlined />}
-                  placeholder="Search models..."
-                  value={modelSearchTerm}
-                  onChange={(e) => setModelSearchTerm(e.target.value)}
-                  style={{ width: 200 }}
-                />
-                <Button type="primary" icon={<SyncOutlined />} className="bg-primary/10 text-primary hover:bg-primary/20 border-primary">
-                  Validate
-                </Button>
-              </div>
-            </div>
-
-            <Collapse
-              activeKey={activeKeys}
-              onChange={(keys) => setActiveKeys(keys as string[])}
-              className="space-y-2 bg-transparent"
-              items={Object.entries(mockModels).map(([category, models]) => ({
-                key: category,
-                label: category,
-                className: "rounded-lg border border-background-dark/10 bg-background-light dark:border-background-light/10 dark:bg-background-dark/50",
-                children: models.map((model) => (
-                  <div key={model.id} className="flex items-center border-t border-background-dark/10 p-3 dark:border-background-light/10">
-                    <div className="flex flex-1 items-center gap-3">
-                      <span className="text-primary">🧠</span>
-                      <span className="text-sm font-medium text-background-dark dark:text-background-light">
-                        {model.name}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {model.services.map((service) => (
-                          <span key={service} title={serviceIcons[service]?.title}>
-                            {serviceIcons[service]?.icon}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button type="text" size="small" icon={<SettingOutlined />} />
-                      <Button type="text" size="small" icon={<DeleteOutlined />} danger />
-                    </div>
-                  </div>
-                ))
-              }))}
-            />
-
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button icon={<EditOutlined />}>Manage</Button>
-              <Button type="primary" icon={<PlusOutlined />} className="bg-primary/10 text-primary hover:bg-primary/20 border-primary">
                 Add
               </Button>
             </div>
+
+            {/* Provider Cards */}
+            <div className="space-y-2">
+              {providers
+                .filter((p) =>
+                  p.provider_name?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((provider) => (
+                  <div
+                    key={provider.id}
+                    onClick={() => setSelectedProvider(provider.id)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                      selectedProvider === provider.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border-light dark:border-border-dark hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={'/default-provider.png'}
+                          alt={provider.provider_name}
+                          className="w-8 h-8 rounded"
+                        />
+                        <div>
+                          <h3 className="font-medium text-background-dark dark:text-background-light">
+                            {provider.provider_name}
+                          </h3>
+                          <p className="text-xs text-background-dark/60 dark:text-background-light/60">
+                            {provider.provider_type}
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={provider.is_enabled}
+                        onChange={(checked) => handleToggleEnabled(provider.id, provider.is_enabled)}
+                        size="small"
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
           </div>
-        </main>
+
+          {/* Provider Settings */}
+          <div className="md:col-span-2">
+            {selectedProviderData ? (
+              <div className="bg-card-light dark:bg-card-dark rounded-lg border border-border-light dark:border-border-dark p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={'/default-provider.png'}
+                      alt={selectedProviderData.provider_name}
+                      className="w-12 h-12 rounded"
+                    />
+                    <div>
+                      <h2 className="text-xl font-semibold text-background-dark dark:text-background-light">
+                        {selectedProviderData.provider_name}
+                      </h2>
+                      <p className="text-sm text-background-dark/60 dark:text-background-light/60">
+                        {selectedProviderData.provider_type}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteProvider(selectedProviderData.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+
+                <Form
+                  form={form}
+                  onFinish={handleUpdateProvider}
+                  layout="vertical"
+                  initialValues={selectedProviderData}
+                >
+                  <Form.Item
+                    label="API Key"
+                    name="api_key"
+                    rules={[{ required: true, message: 'Please input API key' }]}
+                  >
+                    <Input.Password />
+                  </Form.Item>
+
+                  <Form.Item label="API Base URL" name="api_base_url">
+                    <Input />
+                  </Form.Item>
+
+                  <Form.Item>
+                    <Button type="primary" htmlType="submit" loading={loading}>
+                      Save Changes
+                    </Button>
+                  </Form.Item>
+                </Form>
+              </div>
+            ) : (
+              <div className="bg-card-light dark:bg-card-dark rounded-lg border border-border-light dark:border-border-dark p-12 text-center">
+                <p className="text-background-dark/60 dark:text-background-light/60">
+                  Select a provider to view settings
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
 
       {/* Create Provider Modal */}
       <Modal
-        title="Create AI Provider"
+        title="Add New Provider"
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
       >
-        <Form form={form} layout="vertical" onFinish={handleCreateProvider}>
+        <Form form={form} onFinish={handleCreateProvider} layout="vertical">
           <Form.Item
             label="Provider Type"
             name="provider_type"
-            rules={[{ required: true, message: 'Please enter provider type' }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., openai, anthropic, google" />
+            <Input />
           </Form.Item>
 
           <Form.Item
             label="Provider Name"
             name="provider_name"
-            rules={[{ required: true, message: 'Please enter provider name' }]}
+            rules={[{ required: true }]}
           >
-            <Input placeholder="e.g., OpenAI GPT-4" />
+            <Input />
           </Form.Item>
 
           <Form.Item
             label="API Key"
             name="api_key"
-            rules={[{ required: true, message: 'Please enter API key' }]}
+            rules={[{ required: true }]}
           >
-            <Input.Password placeholder="sk-..." />
+            <Input.Password />
           </Form.Item>
 
           <Form.Item label="API Base URL" name="api_base_url">
-            <Input placeholder="https://api.openai.com/v1" />
+            <Input />
           </Form.Item>
 
-          <div className="flex justify-end gap-2">
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              Create
+          <Form.Item>
+            <Button type="primary" htmlType="submit" loading={loading} block>
+              Create Provider
             </Button>
-          </div>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

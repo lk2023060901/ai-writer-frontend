@@ -28,7 +28,7 @@ export interface ContentBlock {
   text?: string;
   id?: string;
   name?: string;
-  input?: any;
+  input?: Record<string, unknown>;
   tool_use_id?: string;
   content?: string;
 }

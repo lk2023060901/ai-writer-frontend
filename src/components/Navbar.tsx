@@ -73,6 +73,8 @@ export default function Navbar({ activeTabKey = 'home', onTabChange }: NavbarPro
         const existingTab = prevTabs.find(tab => tab.key === activeTabKey);
         if (!existingTab) {
           const config = tabConfigs[activeTabKey];
+          if (!config) return prevTabs;
+
           const newTab: TabItem = {
             key: activeTabKey,
             label: (

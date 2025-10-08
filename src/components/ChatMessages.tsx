@@ -100,7 +100,7 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
       if ((response.code === 200 || response.code === 0) && response.data) {
         setMessages(response.data.messages || []);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to load messages:', error);
       message.error('Failed to load messages');
     } finally {
