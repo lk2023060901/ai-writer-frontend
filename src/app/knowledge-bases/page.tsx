@@ -225,12 +225,14 @@ export default function KnowledgeBasesPage() {
     if (!authService.isAuthenticated()) {
       message.warning('Please login first');
       router.push('/login');
-    } else {
-      console.log('🔄 Initial load: loading knowledge bases...');
-      isInitialLoadRef.current = true;
-      loadKnowledgeBases(1, true);
+      return;
     }
-  }, [message, router, loadKnowledgeBases]);
+
+    console.log('🔄 Initial load: loading knowledge bases...');
+    isInitialLoadRef.current = true;
+    loadKnowledgeBases(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ 只在组件挂载时执行一次
 
   const handleKbScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -369,22 +371,25 @@ export default function KnowledgeBasesPage() {
     knowledgeBasesRef.current = knowledgeBases;
   }, [knowledgeBases]);
 
+  // ✅ 当选中的知识库改变时,加载文档和嵌入模型信息
   useEffect(() => {
-    if (selectedKb) {
-      console.log(`📂 Loading documents for knowledge base: ${selectedKb}`);
-      loadDocuments(selectedKb, 1, true);
-
-      // Load embedding model info - 使用 ref 中的最新值
-      const kb = knowledgeBasesRef.current.find(k => k.id === selectedKb);
-      if (kb?.embedding_model_id) {
-        console.log(`🔍 Loading embedding model info: ${kb.embedding_model_id}`);
-        loadEmbeddingModelInfo(kb.embedding_model_id);
-      }
-    } else {
+    if (!selectedKb) {
       setDocuments([]);
       setEmbeddingModelName('');
+      return;
     }
-  }, [selectedKb, loadDocuments, loadEmbeddingModelInfo]); // ✅ 依赖稳定的函数
+
+    console.log(`📂 Loading documents for knowledge base: ${selectedKb}`);
+    loadDocuments(selectedKb, 1, true);
+
+    // Load embedding model info - 使用 ref 中的最新值
+    const kb = knowledgeBasesRef.current.find(k => k.id === selectedKb);
+    if (kb?.embedding_model_id) {
+      console.log(`🔍 Loading embedding model info: ${kb.embedding_model_id}`);
+      loadEmbeddingModelInfo(kb.embedding_model_id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKb]); // ✅ 只依赖 selectedKb,避免循环
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
