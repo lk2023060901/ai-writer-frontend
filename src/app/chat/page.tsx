@@ -31,10 +31,12 @@ export default function ChatPage() {
     providerId: string;
     modelId: string;
   } | null>(null);
-  const [streamingMessage, setStreamingMessage] = useState<{
+  const [streamingMessages, setStreamingMessages] = useState<Map<string, {
+    provider: string;
+    model: string;
     content: string;
     isStreaming: boolean;
-  } | null>(null);
+  }>>(new Map());
   const [messagesRefreshKey, setMessagesRefreshKey] = useState(0);
 
   const handleNewConversation = (agentId: string) => {
@@ -134,7 +136,7 @@ export default function ChatPage() {
                 topicId={selectedTopic}
                 quickQuestionsVisible={quickQuestionsVisible}
                 fontSize={messageFontSize}
-                streamingMessage={streamingMessage}
+                streamingMessages={streamingMessages}
                 refreshKey={messagesRefreshKey}
               />
             ) : isNewConversation ? (
@@ -172,21 +174,32 @@ export default function ChatPage() {
                 assistantId={pendingAssistantId}
                 selectedModel={selectedModel}
                 onTopicCreated={handleTopicCreated}
-                onMessageStart={() => {
-                  console.log('Message streaming started');
-                  setStreamingMessage({ content: '', isStreaming: true });
+                onMessageStart={(provider: string, model: string) => {
+                  console.log('Message streaming started for provider:', provider, 'model:', model);
+                  setStreamingMessages((prev) => {
+                    const newMap = new Map(prev);
+                    newMap.set(provider, { provider, model, content: '', isStreaming: true });
+                    return newMap;
+                  });
                 }}
                 onMessageComplete={() => {
-                  console.log('Message streaming completed');
-                  setStreamingMessage(null);
+                  console.log('All messages streaming completed');
+                  setStreamingMessages(new Map());
                   // Trigger messages reload
                   setMessagesRefreshKey(prev => prev + 1);
                 }}
-                onToken={(content) => {
-                  setStreamingMessage((prev) => ({
-                    content: (prev?.content || '') + content,
-                    isStreaming: true,
-                  }));
+                onToken={(provider: string, content: string) => {
+                  setStreamingMessages((prev) => {
+                    const newMap = new Map(prev);
+                    const existing = newMap.get(provider);
+                    if (existing) {
+                      newMap.set(provider, {
+                        ...existing,
+                        content: existing.content + content,
+                      });
+                    }
+                    return newMap;
+                  });
                 }}
               />
             </div>

@@ -24,7 +24,7 @@ export interface Topic {
 }
 
 export interface ContentBlock {
-  type: 'text' | 'thinking' | 'tool_use' | 'tool_result';
+  type: 'text' | 'image' | 'thinking' | 'tool_use' | 'tool_result';
   text?: string;
   id?: string;
   name?: string;
@@ -38,6 +38,8 @@ export interface Message {
   topic_id: string;
   role: 'user' | 'assistant';
   content_blocks: ContentBlock[];
+  provider?: string;
+  model?: string;
   token_count?: number;
   created_at: string;
 }
@@ -194,7 +196,28 @@ export const chatService = {
     if (params?.offset) queryParams.append('offset', params.offset.toString());
 
     const endpoint = `/api/v1/topics/${topicId}/messages${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    return apiClient.get<MessagesListResponse>(endpoint);
+
+    console.log('📥 [Chat Service] Fetching messages from backend:');
+    console.log('  Endpoint:', endpoint);
+
+    const response = await apiClient.get<MessagesListResponse>(endpoint);
+
+    console.log('📋 [Chat Service] Received messages response:');
+    console.log('  Total messages:', response.data?.messages?.length || 0);
+    if (response.data?.messages) {
+      response.data.messages.forEach((msg, idx) => {
+        console.log(`  Message ${idx}:`);
+        console.log(`    - ID: ${msg.id}`);
+        console.log(`    - Role: ${msg.role}`);
+        console.log(`    - Provider: ${msg.provider || 'N/A'}`);
+        console.log(`    - Model: ${msg.model || 'N/A'}`);
+        console.log(`    - Content blocks:`, msg.content_blocks);
+        const textContent = msg.content_blocks.filter(b => b.type === 'text').map(b => b.text).join('');
+        console.log(`    - Text preview: ${textContent.substring(0, 100)}...`);
+      });
+    }
+
+    return response;
   },
 
   async getMessage(topicId: string, messageId: string) {
@@ -225,17 +248,23 @@ export const chatService = {
       ? (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080')
       : 'http://localhost:8080';
 
+    const requestBody = {
+      topic_id: params.topicId,
+      message: params.message,
+      providers: params.providers,
+    };
+
+    console.log('📤 [Chat Service] Sending request to backend:');
+    console.log('  URL:', `${baseUrl}/api/v1/chat/stream`);
+    console.log('  Request Body:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch(`${baseUrl}/api/v1/chat/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({
-        topic_id: params.topicId,
-        message: params.message,
-        providers: params.providers,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -270,16 +299,23 @@ export const chatService = {
             try {
               const data = JSON.parse(dataStr);
 
+              // Log all SSE events
+              console.log('📥 [Chat Service] Received SSE event:', data);
+
               // Determine event type from the previous event line
               // Since we're processing line by line, we need to track the event
               // For simplicity, we'll detect based on data structure
               if (data.provider && data.model && !data.content) {
+                console.log('  ↳ Event type: START', `(provider: ${data.provider}, model: ${data.model})`);
                 params.onStart?.(data);
               } else if (data.provider && data.content !== undefined) {
+                console.log('  ↳ Event type: TOKEN', `(provider: ${data.provider}, content length: ${data.content.length})`);
                 params.onToken?.(data);
               } else if (data.provider && data.finish_reason) {
+                console.log('  ↳ Event type: DONE', `(provider: ${data.provider}, tokens: ${data.token_count || 'N/A'})`);
                 params.onDone?.(data);
               } else if (data.message === 'All providers completed') {
+                console.log('  ↳ Event type: ALL_DONE');
                 params.onAllDone?.();
               }
             } catch (e) {

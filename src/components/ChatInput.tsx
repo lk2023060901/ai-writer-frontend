@@ -15,9 +15,9 @@ interface ChatInputProps {
     providerName: string;
   } | null;
   onTopicCreated?: (topicId: string) => void;
-  onMessageStart?: () => void;
+  onMessageStart?: (provider: string, model: string) => void;
   onMessageComplete?: () => void;
-  onToken?: (content: string) => void;
+  onToken?: (provider: string, content: string) => void;
 }
 
 export default function ChatInput({
@@ -328,8 +328,7 @@ export default function ChatInput({
       console.log('💬 [ChatInput] Model:', selectedModel.modelId);
       console.log('💬 [ChatInput] Message:', userMessage);
 
-      onMessageStart?.();
-      console.log('📡 [ChatInput] onMessageStart callback called');
+      console.log('📡 [ChatInput] Calling onMessageStart with provider and model');
 
       await chatService.streamChat({
         topicId: activeTopicId,
@@ -337,10 +336,11 @@ export default function ChatInput({
         providers: [{ provider: selectedModel.providerId, model: selectedModel.modelId }],
         onStart: (data) => {
           console.log('🎬 [ChatInput] Stream started:', data);
+          onMessageStart?.(data.provider, data.model);
         },
         onToken: (data) => {
           console.log('🔤 [ChatInput] Token received:', data);
-          onToken?.(data.content);
+          onToken?.(data.provider, data.content);
         },
         onDone: (data) => {
           console.log('✔️ [ChatInput] Stream done:', data);

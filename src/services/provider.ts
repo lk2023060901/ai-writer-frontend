@@ -88,4 +88,29 @@ export const providerService = {
   async getAIModel(id: string) {
     return apiClient.get<AIModel>(`/api/v1/ai-models/${id}`);
   },
+
+  async syncProviderModels(providerId: string) {
+    return apiClient.post<{
+      sync_log_id: string;
+      provider_id: string;
+      provider_name: string;
+      synced_at: string;
+      models_added: number;
+      models_updated: number;
+      models_removed: number;
+      total_models: number;
+    }>(`/api/v1/ai-providers/${providerId}/models/sync`, {});
+  },
+
+  async getProviderModels(providerId: string, params?: { page?: number; page_size?: number }) {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const endpoint = `/api/v1/ai-providers/${providerId}/models${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    return apiClient.get<{
+      items: AIModel[];
+      total: number;
+    }>(endpoint);
+  },
 };

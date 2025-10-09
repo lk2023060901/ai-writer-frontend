@@ -8,10 +8,12 @@ interface ChatMessagesProps {
   topicId: string;
   quickQuestionsVisible?: boolean;
   fontSize?: number;
-  streamingMessage?: {
+  streamingMessages?: Map<string, {
+    provider: string;
+    model: string;
     content: string;
     isStreaming: boolean;
-  } | null;
+  }>;
   refreshKey?: number;
 }
 
@@ -30,7 +32,7 @@ const GeminiIcon = () => (
   </svg>
 );
 
-export default function ChatMessages({ topicId, quickQuestionsVisible = true, fontSize = 14, streamingMessage, refreshKey }: ChatMessagesProps) {
+export default function ChatMessages({ topicId, quickQuestionsVisible = true, fontSize = 14, streamingMessages, refreshKey }: ChatMessagesProps) {
   const { message } = App.useApp();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -73,12 +75,12 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
     }
   }, [messages, scrollToBottom]);
 
-  // Auto scroll when streaming message updates
+  // Auto scroll when streaming messages update
   useEffect(() => {
-    if (streamingMessage?.content) {
+    if (streamingMessages && streamingMessages.size > 0) {
       scrollToBottom();
     }
-  }, [streamingMessage?.content, scrollToBottom]);
+  }, [streamingMessages, scrollToBottom]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -98,6 +100,10 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
       });
 
       if ((response.code === 200 || response.code === 0) && response.data) {
+        console.log('📋 [ChatMessages] Loaded messages:', response.data.messages);
+        response.data.messages?.forEach((msg, idx) => {
+          console.log(`  Message ${idx}: role=${msg.role}, model=${msg.model || 'N/A'}, content_blocks=`, msg.content_blocks);
+        });
         setMessages(response.data.messages || []);
       }
     } catch (error) {
@@ -162,6 +168,9 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
                 minute: '2-digit'
               });
 
+              // Debug: log role to console
+              console.log(`Message ${index}: role="${msg.role}", text preview:`, textContent.substring(0, 50));
+
               if (msg.role === 'assistant') {
                 return (
                   <div key={msg.id} className={`flex items-start gap-4 ${index > 0 ? 'pt-6' : ''}`}>
@@ -169,17 +178,30 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
                       <GeminiIcon />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-background-dark dark:text-background-light">
-                        Assistant
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-background-dark dark:text-background-light">
+                          {msg.model || 'Assistant'}
+                        </p>
+                        {msg.provider && (
+                          <span className="text-xs text-background-dark/40 dark:text-background-light/40">
+                            • Provider: {msg.provider}
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
                         <p className="whitespace-pre-wrap break-words text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
                           {textContent}
                         </p>
                       </div>
-                      <p className="mt-1 text-xs text-background-dark/60 dark:text-background-light/60">
-                        {timestamp}
-                      </p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-background-dark/60 dark:text-background-light/60">
+                        <span>{timestamp}</span>
+                        {msg.token_count && (
+                          <>
+                            <span>•</span>
+                            <span>{msg.token_count} tokens</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -208,27 +230,32 @@ export default function ChatMessages({ topicId, quickQuestionsVisible = true, fo
             })
           )}
 
-          {/* Streaming Message */}
-          {streamingMessage && streamingMessage.content && (
-            <div className={`flex items-start gap-4 ${messages.length > 0 ? 'pt-6' : ''}`}>
+          {/* Streaming Messages */}
+          {streamingMessages && Array.from(streamingMessages.entries()).map(([provider, streamMsg], idx) => (
+            <div key={provider} className={`flex items-start gap-4 ${(messages.length > 0 || idx > 0) ? 'pt-6' : ''}`}>
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
                 <GeminiIcon />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-background-dark dark:text-background-light">
-                  Assistant
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-background-dark dark:text-background-light">
+                    {streamMsg.model || 'Assistant'}
+                  </p>
+                  <span className="text-xs text-background-dark/40 dark:text-background-light/40">
+                    • Provider: {streamMsg.provider}
+                  </span>
+                </div>
                 <div className="mt-2 rounded-lg bg-background-dark/5 p-3 dark:bg-background-light/5">
                   <p className="whitespace-pre-wrap break-words text-background-dark dark:text-background-light" style={{ fontSize: `${fontSize}px` }}>
-                    {streamingMessage.content}
-                    {streamingMessage.isStreaming && (
+                    {streamMsg.content}
+                    {streamMsg.isStreaming && (
                       <span className="ml-1 inline-block h-4 w-1 animate-pulse bg-primary" />
                     )}
                   </p>
                 </div>
               </div>
             </div>
-          )}
+          ))}
 
           <div ref={messagesEndRef} />
         </div>
