@@ -118,18 +118,17 @@ export function useDocumentUpload(options: UseDocumentUploadOptions) {
       });
 
       try {
-        // Step 1: 建立 SSE 连接监听文档处理状态
-        const resource = `kb:${knowledgeBaseId}`;
         const token = localStorage.getItem('access_token');
 
         if (!token) {
           throw new Error('No access token found');
         }
 
-        // 使用任意 doc_id（这里用 'batch'），通过 query 参数传递 token 和 resource
-        const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${knowledgeBaseId}/document-stream/batch?token=${encodeURIComponent(token)}&resource=${encodeURIComponent(resource)}`;
+        // Step 1: 建立 SSE 连接监听知识库级别的文档状态
+        const resource = `kb:${knowledgeBaseId}`;
+        const sseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${knowledgeBaseId}/document-stream/kb-monitor?token=${encodeURIComponent(token)}&resource=${encodeURIComponent(resource)}`;
 
-        console.log('🔗 Connecting to SSE:', sseUrl);
+        console.log('🔗 Connecting to KB-level SSE:', sseUrl);
 
         const eventSource = new EventSource(sseUrl);
         eventSourceRef.current = eventSource;
@@ -139,18 +138,13 @@ export function useDocumentUpload(options: UseDocumentUploadOptions) {
           console.log('🔗 SSE connection opened');
         });
 
-        // Handle connected event (sent by server)
+        // Handle connected event
         eventSource.addEventListener('connected', (e) => {
           const data = JSON.parse(e.data);
           console.log('✅ SSE connected:', data);
         });
 
-        // Handle message event (for debugging)
-        eventSource.addEventListener('message', (e) => {
-          console.log('📨 SSE message:', e.data);
-        });
-
-        // Handle status event (processing/completed/failed)
+        // Handle status event (document processing status updates)
         eventSource.addEventListener('status', (e) => {
           const data = JSON.parse(e.data);
           const { document } = data;
@@ -206,91 +200,120 @@ export function useDocumentUpload(options: UseDocumentUploadOptions) {
           console.error('❌ SSE connection error:', e);
           eventSource.close();
           eventSourceRef.current = null;
-          setUploading(false);
-
-          updateProgress({ status: 'error' });
-
-          if (onError) {
-            onError(new Error('SSE connection failed'));
-          }
         });
 
-        // Step 2: 循环调用单文件上传 API
-        setTimeout(async () => {
-          console.log(`📤 Starting upload of ${files.length} files...`);
+        // Step 2: 使用批量上传 API
+        console.log(`📤 Starting batch upload of ${files.length} files...`);
 
-          try {
-            for (let i = 0; i < files.length; i++) {
-              const file = files[i];
-              if (!file) continue;
+        const formData = new FormData();
+        files.forEach(file => {
+          formData.append('files', file);
+        });
 
-              console.log(`📤 Uploading file ${i + 1}/${files.length}: ${file.name}`);
+        const uploadUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${knowledgeBaseId}/documents/batch-upload`;
+        console.log('📤 Upload URL:', uploadUrl);
+        console.log('📤 Token:', token ? 'exists' : 'missing');
 
-              const formData = new FormData();
-              formData.append('file', file);
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
 
-              const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/knowledge-bases/${knowledgeBaseId}/documents/upload`,
-                {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: formData,
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Upload failed:', response.status, errorText);
+          throw new Error(`Upload failed with status ${response.status}: ${errorText}`);
+        }
+
+        // 处理 SSE 响应流
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          throw new Error('No response body');
+        }
+
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              continue;
+            }
+
+            if (line.startsWith('data:')) {
+              const dataStr = line.substring(5).trim();
+              if (!dataStr) continue;
+
+              try {
+                const data = JSON.parse(dataStr);
+
+                // 适配后端新格式
+                if (data.type === 'connected') {
+                  console.log('✅ SSE connected:', data.data);
+                } else if (data.type === 'batch-start') {
+                  console.log('📦 Batch upload started:', data.data);
+                } else if (data.type === 'file-success') {
+                  // ✅ 后端改为 file-success，字段改为 item_name 和 data
+                  uploadedCountRef.current++;
+                  const document = data.data?.data; // 嵌套的 data.data
+                  const filename = data.data?.item_name; // 改为 item_name
+
+                  console.log(`✅ File uploaded: ${filename} (${uploadedCountRef.current}/${files.length})`, document);
+
+                  const uploadPercentage = Math.round(
+                    (uploadedCountRef.current / totalCountRef.current) * 50
+                  );
+
+                  updateProgress({
+                    uploadedCount: uploadedCountRef.current,
+                    currentFile: filename,
+                    percentage: uploadPercentage,
+                    status: 'uploading',
+                  });
+
+                  // 立即通知有新文档上传
+                  if (onFileUploaded && document) {
+                    console.log(`📤 Calling onFileUploaded with:`, document);
+                    onFileUploaded(document);
+                  }
+                } else if (data.type === 'file-failed') {
+                  // ✅ 后端改为 file-failed
+                  const filename = data.data?.item_name;
+                  const error = data.data?.error;
+                  console.error(`❌ File upload failed: ${filename}`, error);
+                } else if (data.type === 'batch-complete') {
+                  console.log('📦 Batch upload completed:', data.data);
+
+                  updateProgress({
+                    status: 'processing',
+                    percentage: 50,
+                  });
                 }
-              );
-
-              if (!response.ok) {
-                const error = await response.json();
-                console.error(`❌ Failed to upload ${file.name}:`, error);
-                // 继续上传其他文件
-                continue;
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e, dataStr);
               }
-
-              const result = await response.json();
-              uploadedCountRef.current++;
-
-              const uploadPercentage = Math.round(
-                (uploadedCountRef.current / totalCountRef.current) * 50
-              ); // Upload is 50% of total
-
-              updateProgress({
-                uploadedCount: uploadedCountRef.current,
-                currentFile: file.name,
-                percentage: uploadPercentage,
-                status: 'uploading',
-              });
-
-              if (onFileUploaded && result.document) {
-                onFileUploaded(result.document);
-              }
-
-              console.log(`✅ Uploaded ${file.name} (${uploadedCountRef.current}/${files.length})`);
-            }
-
-            // 所有文件上传完成
-            console.log(`📊 All files uploaded: ${uploadedCountRef.current}/${files.length}`);
-
-            updateProgress({
-              status: 'processing',
-              percentage: 50,
-            });
-          } catch (error) {
-            console.error('Upload failed:', error);
-            if (eventSourceRef.current) {
-              eventSourceRef.current.close();
-              eventSourceRef.current = null;
-            }
-            setUploading(false);
-            updateProgress({ status: 'error' });
-
-            if (onError) {
-              onError(error instanceof Error ? error : new Error(String(error)));
             }
           }
-        }, 500); // Wait 500ms for SSE connection to establish
+        }
+
+        console.log(`📊 All files uploaded: ${uploadedCountRef.current}/${files.length}`);
       } catch (error) {
-        console.error('Upload initialization failed:', error);
+        console.error('Upload failed:', error);
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
         setUploading(false);
         updateProgress({ status: 'error' });
 
@@ -299,7 +322,7 @@ export function useDocumentUpload(options: UseDocumentUploadOptions) {
         }
       }
     },
-    [knowledgeBaseId, onProgress, onComplete, onError, onFileUploaded, onStatusUpdate, updateProgress]
+    [knowledgeBaseId, onProgress, onComplete, onError, onFileUploaded, onStatusUpdate, updateProgress, uploading]
   );
 
   return {
