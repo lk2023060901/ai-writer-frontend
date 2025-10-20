@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/\.next/analyze/
 /out/
 
 # production
@@ -23,6 +24,10 @@
 # misc
 .DS_Store
 *.pem
+/.lighthouseci/
+/lhci-reports/
+/.idea/
+.eslintcache
 
 # debug
 npm-debug.log*

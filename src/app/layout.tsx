@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import AntdProvider from '@/components/AntdProvider';
 import './globals.css';
+import { Providers } from './providers';
+import WebVitals from '@/shared/perf/WebVitals';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ConnectHub - Register',
-  description: 'Create your ConnectHub account',
+  title: 'AI Writer - Enterprise Platform',
+  description: 'Enterprise-grade AI writing platform built with Next.js',
 };
 
 export default function RootLayout({
@@ -16,23 +17,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
-          rel="stylesheet"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              // Remove dark class immediately to prevent flash
-              document.documentElement.classList.remove('dark');
-            `,
-          }}
-        />
-      </head>
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <AntdProvider>{children}</AntdProvider>
+        <WebVitals />
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

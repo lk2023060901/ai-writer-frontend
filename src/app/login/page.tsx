@@ -1,234 +1,289 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Modal, Input as AntInput, Button as AntButton, App } from 'antd';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/auth';
+import styled from 'styled-components';
+import { Form, Input, Button, Checkbox, message } from 'antd';
+import type { FormProps } from 'antd';
+import { UserOutlined, LockOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
+import Link from 'next/link';
+import { useAuth } from '@/shared/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { message } = App.useApp();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
-  const [show2FAModal, setShow2FAModal] = useState(false);
-  const [pendingAuthId, setPendingAuthId] = useState('');
-  const [twoFACode, setTwoFACode] = useState('');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  const [formData, setFormData] = useState({
-    usernameOrEmail: '',
-    password: '',
-    rememberMe: false,
-  });
-
-  // Ensure light mode on mount
-  React.useEffect(() => {
-    document.documentElement.classList.remove('dark');
-  }, []);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    document.documentElement.classList.toggle('dark');
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('theme-mode', newTheme);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  type LoginFormValues = { account: string; password: string; remember: boolean };
 
-    try {
-      const response = await authService.login({
-        account: formData.usernameOrEmail,
-        password: formData.password,
-        remember_me: formData.rememberMe,
-      });
-
-      if (response.code !== 0) {
-        message.error(response.message || 'Login failed');
-        return;
-      }
-
-      if (response.data?.require_2fa) {
-        setPendingAuthId(response.data.pending_auth_id || '');
-        setShow2FAModal(true);
-      } else if (response.data?.tokens) {
-        authService.saveTokens(response.data.tokens);
-        message.success('Login successful!');
-        router.push('/chat');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
-      message.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handle2FASubmit = async () => {
-    if (twoFACode.length !== 6) {
-      message.error('Please enter a 6-digit code');
-      return;
-    }
-
+  const onFinish: FormProps['onFinish'] = async (values) => {
+    const { account, password, remember } = values as LoginFormValues;
     setLoading(true);
     try {
-      const response = await authService.verify2FA({
-        pending_auth_id: pendingAuthId,
-        code: twoFACode,
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          account,
+          password,
+          remember_me: remember
+        })
       });
 
-      if (response.code !== 200 && response.code !== 0) {
-        message.error(response.message || '2FA verification failed');
-        return;
-      }
+      const data = await response.json();
 
-      if (response.data?.tokens) {
-        authService.saveTokens(response.data.tokens);
-        message.success('Login successful!');
-        setShow2FAModal(false);
-        router.push('/chat');
+      if (response.ok) {
+        if (data.require_2fa) {
+          // 需要2FA验证
+          message.info('请输入双因素认证码');
+          // TODO: 跳转到2FA验证页面
+        } else {
+          // 登录成功,保存token
+          if (data.tokens) {
+            await login(data.tokens.access_token, data.tokens.refresh_token, {
+              id: data.user?.id ?? 'local-user',
+              email: data.user?.email ?? account,
+              name: data.user?.name ?? account,
+            });
+          }
+          message.success('登录成功');
+
+          // 获取登录前的页面,如果没有则跳转到 /chat
+          const redirectPath = sessionStorage.getItem('redirect_after_login') || '/chat';
+          sessionStorage.removeItem('redirect_after_login');
+          router.push(redirectPath);
+        }
+      } else {
+        message.error(data.message || '登录失败');
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '2FA verification failed';
-      message.error(errorMessage);
+      console.error('登录错误:', error);
+      message.error('登录失败,请稍后重试');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-light p-4 dark:bg-background-dark font-display">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-md bg-primary-10 px-3 py-2 text-sm font-semibold text-primary dark:bg-primary-20">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 6H42L36 24L42 42H6L12 24L6 6Z" fill="currentColor" />
-              </svg>
-              <span className="text-lg">ConnectHub</span>
-            </div>
-          </Link>
-          <h1 className="mt-4 text-2xl font-bold text-background-dark dark:text-background-light">
-            Welcome back!
-          </h1>
-          <p className="text-sm text-background-dark-60 dark:text-background-light-60">
-            Log in to your account.
-          </p>
-        </div>
+    <Container>
+      <ThemeToggle onClick={toggleTheme}>
+        {theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+      </ThemeToggle>
 
-        <div className="rounded-xl border border-background-dark-10 bg-card-light p-6 shadow-sm dark:border-background-light-10 dark:bg-card-dark sm:p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="username-email"
-                className="mb-2 block text-sm font-medium text-background-dark dark:text-background-light"
-              >
-                Username or Email
-              </label>
-              <input
-                id="username-email"
-                type="text"
-                value={formData.usernameOrEmail}
-                onChange={(e) => setFormData({ ...formData, usernameOrEmail: e.target.value })}
-                placeholder="Enter your username or email"
-                className="w-full rounded-md border-background-dark-20 bg-background-light py-2 px-4 text-sm text-background-dark focus:border-primary focus:ring-primary dark:border-background-light-20 dark:bg-background-dark dark:text-background-light"
-                required
-              />
-            </div>
+      <LoginBox>
+        <Logo>AI Writer</Logo>
+        <Title>欢迎回来</Title>
+        <Subtitle>登录您的账号</Subtitle>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="mb-2 block text-sm font-medium text-background-dark dark:text-background-light"
-                >
-                  Password
-                </label>
-                <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
-                  Forgot Password?
-                </Link>
-              </div>
-              <input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Enter your password"
-                className="w-full rounded-md border-background-dark-20 bg-background-light py-2 px-4 text-sm text-background-dark focus:border-primary focus:ring-primary dark:border-background-light-20 dark:bg-background-dark dark:text-background-light"
-                required
-              />
-            </div>
+        <StyledForm name="login" initialValues={{ remember: true }} onFinish={onFinish} size="large">
+          <Form.Item
+            name="account"
+            rules={[{ required: true, message: '请输入邮箱或用户名!' }]}>
+            <StyledInput prefix={<UserOutlined />} placeholder="邮箱或用户名" />
+          </Form.Item>
 
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={formData.rememberMe}
-                onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-                className="h-4 w-4 rounded border-background-dark-20 bg-background-light text-primary focus:ring-primary dark:border-background-light-20 dark:bg-background-dark dark:focus:ring-offset-background-dark"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-background-dark dark:text-background-light">
-                Remember me for 90 days
-              </label>
-            </div>
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: '请输入密码!' }]}>
+            <StyledInput.Password prefix={<LockOutlined />} placeholder="密码" />
+          </Form.Item>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-background-dark"
-            >
-              {loading ? 'Loading...' : 'Login'}
-            </button>
-          </form>
+          <FormActions>
+            <Form.Item name="remember" valuePropName="checked" noStyle>
+              <Checkbox>记住我</Checkbox>
+            </Form.Item>
+            <ForgotPassword href="#">忘记密码?</ForgotPassword>
+          </FormActions>
 
-          <div className="mt-6 text-center">
-            <span className="text-sm text-background-dark-60 dark:text-background-light-60">
-              Don&apos;t have an account?{' '}
-            </span>
-            <Link href="/register" className="text-sm font-medium text-primary hover:underline">
-              Register Account
-            </Link>
-          </div>
-        </div>
+          <Form.Item>
+            <LoginButton type="primary" htmlType="submit" loading={loading} block>
+              登录
+            </LoginButton>
+          </Form.Item>
 
-        {/* Dark Mode Toggle Button */}
-        <button
-          onClick={toggleDarkMode}
-          className="absolute top-4 right-4 flex h-9 w-9 items-center justify-center rounded-md text-background-dark-60 transition-colors hover:bg-background-dark-5 hover:text-background-dark dark:text-background-light-60 dark:hover:bg-background-light-5 dark:hover:text-background-light"
-        >
-          <span className="text-xl">{darkMode ? '🌙' : '☀️'}</span>
-        </button>
-      </div>
-
-      {/* 2FA Modal */}
-      <Modal
-        title="Two-Factor Authentication"
-        open={show2FAModal}
-        onCancel={() => setShow2FAModal(false)}
-        footer={null}
-        centered
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium">Enter 6-digit code</label>
-            <AntInput
-              value={twoFACode}
-              onChange={(e) => setTwoFACode(e.target.value)}
-              placeholder="123456"
-              maxLength={6}
-              className="text-center text-lg tracking-widest"
-            />
-          </div>
-          <AntButton
-            type="primary"
-            loading={loading}
-            onClick={handle2FASubmit}
-            className="w-full"
-            size="large"
-          >
-            Verify
-          </AntButton>
-        </div>
-      </Modal>
-    </div>
+          <RegisterLink>
+            还没有账号? <Link href="/register">立即注册</Link>
+          </RegisterLink>
+        </StyledForm>
+      </LoginBox>
+    </Container>
   );
 }
+
+const Container = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background);
+  position: relative;
+`;
+
+const ThemeToggle = styled.div`
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 20px;
+
+  &:hover {
+    background: var(--color-background-mute);
+  }
+`;
+
+const LoginBox = styled.div`
+  width: 100%;
+  max-width: 400px;
+  padding: 48px 40px;
+  background: var(--color-background-soft);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+`;
+
+const Logo = styled.div`
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--color-primary), #667eea);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 8px;
+  color: var(--color-text);
+`;
+
+const Subtitle = styled.p`
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-bottom: 32px;
+`;
+
+const StyledForm = styled(Form)`
+  .ant-form-item {
+    margin-bottom: 20px;
+  }
+`;
+
+const StyledInput = styled(Input)`
+  height: 48px;
+  border-radius: 8px;
+  background: var(--color-background);
+  border-color: var(--color-border);
+  color: var(--color-text);
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+  }
+
+  .ant-input {
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .ant-input-prefix {
+    color: var(--color-text-secondary);
+  }
+`;
+
+StyledInput.Password = styled(Input.Password)`
+  height: 48px;
+  border-radius: 8px;
+  background: var(--color-background);
+  border-color: var(--color-border);
+
+  &:hover,
+  &:focus,
+  &:focus-within {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+  }
+
+  .ant-input {
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .ant-input-prefix,
+  .ant-input-suffix {
+    color: var(--color-text-secondary);
+  }
+`;
+
+const FormActions = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .ant-checkbox-wrapper {
+    color: var(--color-text);
+  }
+`;
+
+const ForgotPassword = styled.a`
+  color: var(--color-primary);
+  text-decoration: none;
+  font-size: 14px;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
+const LoginButton = styled(Button)`
+  height: 48px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--color-primary);
+  border: none;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary);
+    opacity: 0.9;
+  }
+`;
+
+const RegisterLink = styled.div`
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+`;

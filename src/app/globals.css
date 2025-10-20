@@ -1,249 +1,73 @@
-@import "tailwindcss";
-@plugin "@tailwindcss/forms";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@variant dark (&:where(.dark, .dark *));
+/* 导入 Cherry Studio 样式系统 */
+@import '../assets/styles/color.css';
+@import '../assets/styles/font.css';
 
-@theme {
-  /* Custom Colors */
-  --color-primary: #1173d4;
-  --color-primary-90: rgb(17 115 212 / 0.9);
-  --color-primary-20: rgb(17 115 212 / 0.2);
-  --color-primary-10: rgb(17 115 212 / 0.1);
-
-  --color-background-light: #f6f7f8;
-  --color-background-light-60: rgb(246 247 248 / 0.6);
-  --color-background-light-10: rgb(246 247 248 / 0.1);
-  --color-background-light-5: rgb(246 247 248 / 0.05);
-
-  --color-background-dark: #101922;
-  --color-background-dark-80: rgb(16 25 34 / 0.8);
-  --color-background-dark-60: rgb(16 25 34 / 0.6);
-  --color-background-dark-20: rgb(16 25 34 / 0.2);
-  --color-background-dark-10: rgb(16 25 34 / 0.1);
-  --color-background-dark-5: rgb(16 25 34 / 0.05);
-
-  --color-card-light: #ffffff;
-  --color-card-dark: #18222c;
-
-  /* Backdrop colors for navbar */
-  --color-background-dark\/80: rgba(16, 25, 34, 0.8);
-
-  /* Font Family */
-  --font-family-display: Inter, sans-serif;
-
-  /* Border Radius */
-  --border-radius: 0.5rem;
-  --border-radius-lg: 0.75rem;
-  --border-radius-xl: 1rem;
-  --border-radius-full: 9999px;
+/* 全局样式重置 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-/* Apps tabs custom styles */
-.apps-tabs {
-  margin-bottom: 0;
-}
-
-.apps-tabs .ant-tabs-nav {
-  margin-bottom: 0 !important;
-  border: 0;
-  align-items: center;
-}
-
-.apps-tabs .ant-tabs-nav::before {
-  border: 0;
-}
-
-.apps-tabs .ant-tabs-tab {
-  padding: 4px 12px;
-  background: transparent;
-  border: 0;
-  margin: 0 !important;
-  display: flex;
-  align-items: center;
-}
-
-.apps-tabs .ant-tabs-tab-remove {
-  margin-left: 4px;
-}
-
-/* Remove dots from upload drag area */
-.ant-upload.ant-upload-drag {
-  border: 2px dashed #d9d9d9 !important;
-  background: #fafafa;
-}
-
-.ant-upload.ant-upload-drag:hover {
-  border-color: #1890ff !important;
-}
-
-.ant-upload-drag .ant-upload {
-  padding: 16px 0;
-}
-
-/* Hide ALL menu dots and decorations in upload area */
-.ant-upload-drag::before,
-.ant-upload-drag::after,
-.ant-upload-drag .ant-upload-drag-icon::before,
-.ant-upload-drag .ant-upload-drag-icon::after,
-.ant-upload-list-item-actions,
-.ant-upload-list-item-action,
-.ant-upload-list-item .anticon-delete,
-.ant-upload-list-item .anticon-download,
-.ant-upload.ant-upload-drag .ant-upload-btn::before,
-.ant-upload.ant-upload-drag .ant-upload-btn::after,
-.ant-upload-drag-container::before,
-.ant-upload-drag-container::after,
-.ant-upload-wrapper .ant-upload-drag::before,
-.ant-upload-drag > span::before,
-.ant-upload-drag > span::after,
-.ant-upload-drag > .ant-upload::before,
-.ant-upload-drag > .ant-upload::after,
-span.ant-upload-drag > *::before {
-  display: none !important;
-  content: none !important;
-  background: none !important;
-  border: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-}
-
-/* Remove Tabs default bottom margin */
-.ant-tabs.mb-0 {
-  margin-bottom: 0 !important;
-}
-
-.ant-tabs.mb-0 .ant-tabs-nav {
-  margin-bottom: 0 !important;
-}
-
-/* Completely remove the three-dot icon for custom upload */
-.upload-no-icon * {
-  position: relative !important;
-}
-
-.upload-no-icon *::before,
-.upload-no-icon *::after {
-  content: none !important;
-  display: none !important;
-}
-
-/* Add spacing between upload area and file list */
-.ant-upload-drag + div {
-  margin-top: 24px !important;
-}
-
-/* Dark mode upload area */
-.dark .ant-upload.ant-upload-drag {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: #434343 !important;
-}
-
-.dark .ant-upload.ant-upload-drag:hover {
-  border-color: #1890ff !important;
-}
-
-/* Chat Layout Styles */
-.chat-messages-container {
+html,
+body,
+#root {
+  width: 100%;
   height: 100%;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-.chat-messages-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scroll-behavior: smooth;
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-1);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.chat-input-container {
-  flex-shrink: 0;
-  min-height: 80px;
-}
-
-/* Custom Scrollbar Styles */
-.chat-messages-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-messages-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
-  transition: background 0.2s ease;
-}
-
-.chat-messages-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.dark .chat-messages-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.dark .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Firefox scrollbar */
-.chat-messages-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-}
-
-.dark .chat-messages-scroll {
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-/* Chat Input Transitions */
-.chat-input-transition {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Attachment Preview Animation */
-.attachment-preview-enter {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.attachment-preview-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.attachment-preview-exit {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.attachment-preview-exit-active {
-  opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* Responsive Layout Adjustments */
-@media (max-width: 768px) {
-  .chat-messages-scroll {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
-  
-  .chat-input-container {
-    padding-left: 1rem;
-    padding-right: 1rem;
+/* Tailwind 工具类 */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
   }
 }
 
-@media (max-width: 640px) {
-  .chat-messages-scroll::-webkit-scrollbar {
-    width: 4px;
+/* 移除默认的 focus outline，使用自定义样式 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Cherry Studio 的响应式变量 */
+:root {
+  --navbar-height: 44px;
+  --sidebar-width: 50px;
+  --status-bar-height: 40px;
+  --input-bar-height: 100px;
+
+  --assistants-width: 275px;
+  --topic-list-width: 275px;
+  --settings-width: 250px;
+
+  --scrollbar-width: 5px;
+}
+
+[navbar-position='left'] {
+  --navbar-height: 42px;
+  --list-item-border-radius: 20px;
+}
+
+/* lg */
+@media (max-width: 1080px) {
+  :root {
+    --assistants-width: 210px;
+    --topic-list-width: 210px;
+    --settings-width: 210px;
   }
 }

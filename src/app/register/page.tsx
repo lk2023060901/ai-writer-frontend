@@ -1,206 +1,275 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, App } from 'antd';
-import Link from 'next/link';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import { authService } from '@/services/auth';
-
-interface RegisterFormValues {
-  username: string;
-  email: string;
-  password: string;
-  confirm_password: string;
-  verification_code?: string;
-}
+import styled from 'styled-components';
+import { Form, Input, Button, message } from 'antd';
+import type { FormProps } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { message } = App.useApp();
-  const [form] = Form.useForm();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordsMatch, setPasswordsMatch] = useState(true);
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [timer, setTimer] = useState(120);
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  useEffect(() => {
-    setPasswordsMatch(password === confirmPassword || confirmPassword === '');
-  }, [password, confirmPassword]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (verificationSent && timer > 0) {
-      interval = setInterval(() => {
-        setTimer((prev) => {
-          if (prev <= 1) {
-            setVerificationSent(false);
-            return 120;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [verificationSent, timer]);
-
-  const handleSendVerification = () => {
-    const email = form.getFieldValue('email');
-    if (!email) {
-      message.error('Please enter your email first');
-      return;
-    }
-    setVerificationSent(true);
-    message.success('Verification code sent to your email');
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('theme-mode', newTheme);
   };
 
-  const handleSubmit = async (values: RegisterFormValues) => {
-    if (!passwordsMatch) {
-      message.error('Passwords do not match');
-      return;
-    }
+  type RegisterFormValues = { name: string; email: string; password: string };
 
+  const onFinish: FormProps['onFinish'] = async (values) => {
+    const { name, email, password } = values as RegisterFormValues;
     setLoading(true);
     try {
-      const response = await authService.register({
-        name: values.username,
-        email: values.email,
-        password: values.password,
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          password
+        })
       });
 
-      if (response.code !== 200 && response.code !== 0) {
-        message.error(response.message || 'Registration failed');
-        return;
+      const data = await response.json();
+
+      if (response.ok) {
+        message.success(data.message || '注册成功,请登录');
+        setTimeout(() => {
+          router.push('/login');
+        }, 1500);
+      } else {
+        message.error(data.message || '注册失败');
       }
-
-      message.success(response.data?.message || 'Registration successful! Please verify your email.');
-
-      // Redirect to login page after 2 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
-      message.error(errorMessage);
+      console.error('注册错误:', error);
+      message.error('注册失败,请稍后重试');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background-light p-4 dark:bg-background-dark">
-      <div className="w-full max-w-md">
-        <div className="mb-6 flex flex-col items-center">
-          <Navbar />
-          <h1 className="mt-4 text-2xl font-bold text-background-dark dark:text-background-light">
-            Create your account
-          </h1>
-          <p className="text-sm text-background-dark/60 dark:text-background-light/60">
-            Start your journey with us.
-          </p>
-        </div>
+    <Container>
+      <ThemeToggle onClick={toggleTheme}>
+        {theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+      </ThemeToggle>
 
-        <div className="rounded-xl border border-background-dark/10 bg-card-light p-6 shadow-sm dark:border-background-light/10 dark:bg-card-dark sm:p-8">
-          <Form form={form} onFinish={handleSubmit} layout="vertical" className="space-y-4">
-            <Form.Item
-              label={<span className="text-sm font-medium text-background-dark dark:text-background-light">Username</span>}
-              name="username"
-              rules={[{ required: true, message: 'Please enter your username' }]}
-            >
-              <Input
-                placeholder="Enter your username"
-                className="rounded-md border-background-dark/20 bg-background-light py-2 px-4 text-sm text-background-dark dark:border-background-light/20 dark:bg-background-dark dark:text-background-light"
-              />
-            </Form.Item>
+      <RegisterBox>
+        <Logo>AI Writer</Logo>
+        <Title>创建账号</Title>
+        <Subtitle>开始您的AI写作之旅</Subtitle>
 
-            <Form.Item
-              label={<span className="text-sm font-medium text-background-dark dark:text-background-light">Email</span>}
-              name="email"
-              rules={[
-                { required: true, message: 'Please enter your email' },
-                { type: 'email', message: 'Please enter a valid email' },
-              ]}
-            >
-              <div className="relative">
-                <Input
-                  placeholder="Enter your email"
-                  className="rounded-md border-background-dark/20 bg-background-light py-2 pl-4 pr-40 text-sm text-background-dark dark:border-background-light/20 dark:bg-background-dark dark:text-background-light"
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-1.5">
-                  <button
-                    type="button"
-                    onClick={handleSendVerification}
-                    disabled={verificationSent}
-                    className={`flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium ${
-                      verificationSent
-                        ? 'cursor-not-allowed text-background-dark/50 dark:text-background-light/50'
-                        : 'bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30'
-                    }`}
-                  >
-                    {verificationSent ? `Resend in ${timer}s` : 'Email Verification'}
-                  </button>
-                </div>
-              </div>
-            </Form.Item>
+        <StyledForm name="register" onFinish={onFinish} size="large">
+          <Form.Item
+            name="name"
+            rules={[
+              { required: true, message: '请输入用户名!' },
+              { min: 2, message: '用户名至少2个字符!' }
+            ]}>
+            <StyledInput prefix={<UserOutlined />} placeholder="用户名" />
+          </Form.Item>
 
-            <Form.Item
-              label={<span className="text-sm font-medium text-background-dark dark:text-background-light">Password</span>}
-              name="password"
-              rules={[{ required: true, message: 'Please enter your password' }]}
-            >
-              <Input.Password
-                placeholder="Enter your password"
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-md border-background-dark/20 bg-background-light py-2 px-4 text-sm text-background-dark dark:border-background-light/20 dark:bg-background-dark dark:text-background-light"
-              />
-            </Form.Item>
+          <Form.Item
+            name="email"
+            rules={[
+              { required: true, message: '请输入邮箱!' },
+              { type: 'email', message: '请输入有效的邮箱地址!' }
+            ]}>
+            <StyledInput prefix={<MailOutlined />} placeholder="邮箱" />
+          </Form.Item>
 
-            <Form.Item
-              label={<span className="text-sm font-medium text-background-dark dark:text-background-light">Confirm Password</span>}
-              name="confirmPassword"
-              rules={[
-                { required: true, message: 'Please confirm your password' },
-                {
-                  validator: (_, value) =>
-                    value && value === password
-                      ? Promise.resolve()
-                      : Promise.reject(new Error('Passwords do not match')),
-                },
-              ]}
-              validateStatus={!passwordsMatch && confirmPassword ? 'error' : ''}
-              help={!passwordsMatch && confirmPassword ? 'Passwords do not match.' : ''}
-            >
-              <Input.Password
-                placeholder="Confirm your password"
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`rounded-md border-background-dark/20 bg-background-light py-2 px-4 text-sm text-background-dark dark:border-background-light/20 dark:bg-background-dark dark:text-background-light ${
-                  !passwordsMatch && confirmPassword
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-                    : ''
-                }`}
-              />
-            </Form.Item>
+          <Form.Item
+            name="password"
+            rules={[
+              { required: true, message: '请输入密码!' },
+              { min: 6, message: '密码至少6个字符!' }
+            ]}>
+            <StyledInput.Password prefix={<LockOutlined />} placeholder="密码" />
+          </Form.Item>
 
-            <Button
-              type="primary"
-              htmlType="submit"
-              loading={loading}
-              className="w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-background-dark"
-              size="large"
-            >
-              Register
-            </Button>
-          </Form>
+          <Form.Item
+            name="confirm"
+            dependencies={['password']}
+            rules={[
+              { required: true, message: '请确认密码!' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue('password') === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error('两次输入的密码不一致!'));
+                }
+              })
+            ]}>
+            <StyledInput.Password prefix={<LockOutlined />} placeholder="确认密码" />
+          </Form.Item>
 
-          <div className="mt-6 text-center">
-            <Link href="/login" className="text-sm font-medium text-primary hover:underline">
-              Return to Login
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
+          <Form.Item>
+            <RegisterButton type="primary" htmlType="submit" loading={loading} block>
+              注册
+            </RegisterButton>
+          </Form.Item>
+
+          <LoginLink>
+            已有账号? <Link href="/login">立即登录</Link>
+          </LoginLink>
+        </StyledForm>
+      </RegisterBox>
+    </Container>
   );
 }
+
+const Container = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background);
+  position: relative;
+`;
+
+const ThemeToggle = styled.div`
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-background-soft);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 20px;
+
+  &:hover {
+    background: var(--color-background-mute);
+  }
+`;
+
+const RegisterBox = styled.div`
+  width: 100%;
+  max-width: 400px;
+  padding: 48px 40px;
+  background: var(--color-background-soft);
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+`;
+
+const Logo = styled.div`
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--color-primary), #667eea);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+`;
+
+const Title = styled.h1`
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 8px;
+  color: var(--color-text);
+`;
+
+const Subtitle = styled.p`
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-bottom: 32px;
+`;
+
+const StyledForm = styled(Form)`
+  .ant-form-item {
+    margin-bottom: 20px;
+  }
+`;
+
+const StyledInput = styled(Input)`
+  height: 48px;
+  border-radius: 8px;
+  background: var(--color-background);
+  border-color: var(--color-border);
+  color: var(--color-text);
+
+  &:hover,
+  &:focus {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+  }
+
+  .ant-input {
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .ant-input-prefix {
+    color: var(--color-text-secondary);
+  }
+`;
+
+StyledInput.Password = styled(Input.Password)`
+  height: 48px;
+  border-radius: 8px;
+  background: var(--color-background);
+  border-color: var(--color-border);
+
+  &:hover,
+  &:focus,
+  &:focus-within {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+  }
+
+  .ant-input {
+    background: transparent;
+    color: var(--color-text);
+  }
+
+  .ant-input-prefix,
+  .ant-input-suffix {
+    color: var(--color-text-secondary);
+  }
+`;
+
+const RegisterButton = styled(Button)`
+  height: 48px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--color-primary);
+  border: none;
+
+  &:hover:not(:disabled) {
+    background: var(--color-primary);
+    opacity: 0.9;
+  }
+`;
+
+const LoginLink = styled.div`
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+`;
